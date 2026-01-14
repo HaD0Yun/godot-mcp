@@ -9,7 +9,7 @@
 
 import { fileURLToPath } from 'url';
 import { join, dirname, basename, normalize } from 'path';
-import { existsSync, readdirSync, mkdirSync } from 'fs';
+import { existsSync, readdirSync, mkdirSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
@@ -923,6 +923,20 @@ class GodotServer {
             required: ['projectPath'],
           },
         },
+        {
+          name: 'info',
+          description: 'Get MCP server information, Godot connection status, and diagnostics',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Optional: Check specific project status',
+              },
+            },
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -958,6 +972,8 @@ class GodotServer {
           return await this.handleGetUid(request.params.arguments);
         case 'update_project_uids':
           return await this.handleUpdateProjectUids(request.params.arguments);
+        case 'info':
+          return await this.handleInfo(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -2149,6 +2165,112 @@ class GodotServer {
           'Check if the GODOT_PATH environment variable is set correctly',
           'Verify the project path is accessible',
         ]
+      );
+    }
+  }
+
+  /**
+   * Handle the info tool
+   * Get MCP server information, Godot connection status, and diagnostics
+   * @param args Tool arguments (optional projectPath)
+   */
+  private async handleInfo(args: any) {
+    try {
+      // Normalize parameters to camelCase
+      args = this.normalizeParameters(args);
+
+      // Read version from package.json
+      let serverVersion = 'unknown';
+      try {
+        const packagePath = join(__dirname, '..', 'package.json');
+        const packageContent = readFileSync(packagePath, 'utf8');
+        const packageJson = JSON.parse(packageContent);
+        serverVersion = packageJson.version || 'unknown';
+      } catch (error) {
+        this.logDebug(`Could not read package.json: ${error}`);
+      }
+
+      // Detect Godot path if not already set
+      if (!this.godotPath) {
+        await this.detectGodotPath();
+      }
+
+      // Get Godot version if possible
+      let godotVersion = 'unknown';
+      if (this.godotPath && await this.isValidGodotPath(this.godotPath)) {
+        try {
+          const { stdout } = await execAsync(`"${this.godotPath}" --version`, { timeout: 5000 });
+          godotVersion = stdout.trim();
+        } catch (error) {
+          this.logDebug(`Could not get Godot version: ${error}`);
+        }
+      }
+
+      // Count available tools
+      const toolCount = 15; // Current count of tools (launch_editor, run_project, etc.)
+
+      // Check for detected issues
+      const detectedIssues: string[] = [];
+
+      if (!this.godotPath) {
+        detectedIssues.push('Godot executable path not found. Set GODOT_PATH environment variable.');
+      } else if (!(await this.isValidGodotPath(this.godotPath))) {
+        detectedIssues.push(`Godot executable not valid: ${this.godotPath}`);
+      }
+
+      if (godotVersion === 'unknown') {
+        detectedIssues.push('Could not determine Godot version');
+      }
+
+      // Check project path if provided
+      let projectStatus: any = null;
+      if (args.projectPath) {
+        try {
+          const projectFile = join(args.projectPath, 'project.godot');
+          if (!existsSync(args.projectPath)) {
+            detectedIssues.push(`Project directory does not exist: ${args.projectPath}`);
+          } else if (!existsSync(projectFile)) {
+            detectedIssues.push(`Not a valid Godot project: ${args.projectPath} (missing project.godot)`);
+          } else {
+            projectStatus = {
+              path: args.projectPath,
+              isValid: true,
+              godotVersion: godotVersion,
+            };
+          }
+        } catch (error: any) {
+          detectedIssues.push(`Project path check failed: ${error?.message || 'Unknown error'}`);
+        }
+      }
+
+      const info: any = {
+        version: serverVersion,
+        godot_path: this.godotPath,
+        godot_version: godotVersion,
+        tool_count: toolCount,
+        detected_issues: detectedIssues,
+        platform: process.platform,
+        node_version: process.version,
+        debug_mode: DEBUG_MODE,
+        godot_debug_mode: GODOT_DEBUG_MODE,
+      };
+
+      if (projectStatus) {
+        info.project = projectStatus;
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(info, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to get info: ${error?.message || 'Unknown error'}`,
+        ['Check if server is running correctly', 'Verify file system access permissions']
       );
     }
   }
