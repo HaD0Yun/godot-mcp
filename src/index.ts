@@ -2247,7 +2247,7 @@ class GodotServer {
         version: serverVersion,
         godot_path: this.godotPath,
         godot_version: godotVersion,
-        tool_count: toolCount,
+        tool_count: toolCount, // 14 core tools + info diagnostic
         detected_issues: detectedIssues,
         platform: process.platform,
         node_version: process.version,
