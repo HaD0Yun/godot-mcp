@@ -70,19 +70,25 @@ Traditional AI assistants can write GDScript, but they're essentially working bl
 - **Context-Aware Assistance**: The AI can inspect your actual scene tree, understand your node hierarchy, and provide suggestions based on your real project structure
 - **Validation Before Suggesting**: Before suggesting you use a resource, the AI can verify it exists in your project
 
-#### 2. **60+ Tools Covering 75% of Godot's Capabilities**
+#### 2. **88 Tools Covering 75%+ of Godot's Capabilities**
 
 | Category | What You Can Do | Tools |
 |----------|-----------------|-------|
 | **Scene Management** | Build entire scene trees programmatically | `create_scene`, `add_node`, `delete_node`, `duplicate_node`, `reparent_node`, `list_scene_nodes`, `get_node_properties`, `set_node_properties` |
 | **GDScript Operations** | Write and modify scripts with surgical precision | `create_script`, `modify_script`, `get_script_info` |
 | **Resource Creation** | Generate materials, shaders, and custom resources | `create_resource`, `create_material`, `create_shader` |
-| **Animation System** | Build animations track by track | `create_animation`, `add_animation_track` |
+| **Animation System** | Build animations and state machines | `create_animation`, `add_animation_track`, `create_animation_tree`, `add_animation_state`, `connect_animation_states`, `set_animation_tree_parameter` |
 | **2D Tile System** | Create tilesets and populate tilemaps | `create_tileset`, `set_tilemap_cells` |
 | **Signal Management** | Wire up your game's event system | `connect_signal`, `disconnect_signal`, `list_connections` |
 | **Project Configuration** | Manage settings, autoloads, and inputs | `get_project_setting`, `set_project_setting`, `add_autoload`, `add_input_action` |
 | **Developer Experience** | Analyze, debug, and maintain your project | `get_dependencies`, `find_resource_usages`, `parse_error_log`, `get_project_health`, `search_project` |
 | **Runtime Debugging** | Inspect and modify running games | `inspect_runtime_tree`, `set_runtime_property`, `call_runtime_method`, `get_runtime_metrics` |
+| **Audio System** | Create audio buses and stream players | `create_audio_bus`, `get_audio_buses`, `set_audio_bus_effect`, `set_audio_bus_volume`, `create_audio_stream_player` |
+| **Networking** | Build multiplayer games | `create_http_request`, `create_multiplayer_spawner`, `create_multiplayer_synchronizer` |
+| **Physics** | Configure physics layers and materials | `configure_physics_layer`, `create_physics_material`, `create_raycast`, `set_collision_layer_mask` |
+| **Navigation** | AI pathfinding setup | `create_navigation_region`, `create_navigation_agent`, `configure_navigation_layers` |
+| **Rendering** | Environment and lighting setup | `create_environment`, `create_world_environment`, `create_light`, `create_camera` |
+| **UI/Themes** | Create and apply custom themes | `create_theme`, `set_theme_color`, `set_theme_font_size`, `apply_theme_to_node` |
 | **Auto Reload** | Instant editor refresh on external changes | Built-in Editor Plugin |
 
 #### 3. **Seamless Editor Integration with Auto Reload**

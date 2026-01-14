@@ -163,6 +163,67 @@ func _init():
             create_tileset(params)
         "set_tilemap_cells":
             set_tilemap_cells(params)
+        # Audio System Tools
+        "create_audio_bus":
+            create_audio_bus(params)
+        "get_audio_buses":
+            get_audio_buses(params)
+        "set_audio_bus_effect":
+            set_audio_bus_effect(params)
+        "set_audio_bus_volume":
+            set_audio_bus_volume(params)
+        "create_audio_stream_player":
+            create_audio_stream_player(params)
+        # Networking Tools
+        "create_http_request":
+            create_http_request(params)
+        "create_multiplayer_spawner":
+            create_multiplayer_spawner(params)
+        "create_multiplayer_synchronizer":
+            create_multiplayer_synchronizer(params)
+        # Physics Tools
+        "configure_physics_layer":
+            configure_physics_layer(params)
+        "create_physics_material":
+            create_physics_material(params)
+        "create_raycast":
+            create_raycast(params)
+        "set_collision_layer_mask":
+            set_collision_layer_mask(params)
+        # Navigation Tools
+        "create_navigation_region":
+            create_navigation_region(params)
+        "create_navigation_agent":
+            create_navigation_agent(params)
+        "configure_navigation_layers":
+            configure_navigation_layers(params)
+        # Rendering Tools
+        "create_environment":
+            create_environment_resource(params)
+        "create_world_environment":
+            create_world_environment(params)
+        "create_light":
+            create_light(params)
+        "create_camera":
+            create_camera(params)
+        # Animation Tree Tools
+        "create_animation_tree":
+            create_animation_tree(params)
+        "add_animation_state":
+            add_animation_state(params)
+        "connect_animation_states":
+            connect_animation_states(params)
+        "set_animation_tree_parameter":
+            set_animation_tree_parameter(params)
+        # UI/Theme Tools
+        "create_theme":
+            create_theme_resource(params)
+        "set_theme_color":
+            set_theme_color(params)
+        "set_theme_font_size":
+            set_theme_font_size(params)
+        "apply_theme_to_node":
+            apply_theme_to_node(params)
         _:
             log_error("Unknown operation: " + operation)
             quit(1)
@@ -5617,5 +5678,870 @@ func set_tilemap_cells(params):
         "errors": errors
     }
     
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+
+# ============================================
+# Audio System Functions
+# ============================================
+
+func create_audio_bus(params: Dictionary):
+    var bus_name = params.get("busName", "NewBus")
+    var parent_idx = int(params.get("parentBusIndex", 0))
+    
+    AudioServer.add_bus(parent_idx + 1)
+    var new_idx = AudioServer.bus_count - 1
+    AudioServer.set_bus_name(new_idx, bus_name)
+    
+    if parent_idx > 0:
+        var parent_name = AudioServer.get_bus_name(parent_idx)
+        AudioServer.set_bus_send(new_idx, parent_name)
+    
+    # Save bus layout
+    var layout = AudioServer.generate_bus_layout()
+    var save_path = "res://default_bus_layout.tres"
+    var err = ResourceSaver.save(layout, save_path)
+    
+    var result = {
+        "success": err == OK,
+        "bus_index": new_idx,
+        "bus_name": bus_name,
+        "layout_saved": save_path if err == OK else "failed"
+    }
+    print(JSON.stringify(result))
+
+func get_audio_buses(params: Dictionary):
+    var buses = []
+    for i in range(AudioServer.bus_count):
+        var bus_info = {
+            "index": i,
+            "name": AudioServer.get_bus_name(i),
+            "volume_db": AudioServer.get_bus_volume_db(i),
+            "mute": AudioServer.is_bus_mute(i),
+            "solo": AudioServer.is_bus_solo(i),
+            "effect_count": AudioServer.get_bus_effect_count(i),
+            "send": AudioServer.get_bus_send(i)
+        }
+        buses.append(bus_info)
+    
+    var result = {"success": true, "bus_count": AudioServer.bus_count, "buses": buses}
+    print(JSON.stringify(result))
+
+func set_audio_bus_effect(params: Dictionary):
+    var bus_idx = int(params.get("busIndex", 0))
+    var effect_idx = int(params.get("effectIndex", 0))
+    var effect_type = params.get("effectType", "Reverb")
+    var enabled = params.get("enabled", true)
+    
+    var effect = null
+    match effect_type:
+        "Reverb": effect = AudioEffectReverb.new()
+        "Delay": effect = AudioEffectDelay.new()
+        "Chorus": effect = AudioEffectChorus.new()
+        "Amplify": effect = AudioEffectAmplify.new()
+        "Compressor": effect = AudioEffectCompressor.new()
+        "Limiter": effect = AudioEffectLimiter.new()
+        "EQ": effect = AudioEffectEQ.new()
+        "LowPassFilter": effect = AudioEffectLowPassFilter.new()
+        "HighPassFilter": effect = AudioEffectHighPassFilter.new()
+        "Distortion": effect = AudioEffectDistortion.new()
+        _:
+            log_error("Unknown effect type: " + effect_type)
+            quit(1)
+    
+    # Ensure enough effect slots
+    while AudioServer.get_bus_effect_count(bus_idx) <= effect_idx:
+        AudioServer.add_bus_effect(bus_idx, AudioEffectAmplify.new())
+    
+    AudioServer.add_bus_effect(bus_idx, effect, effect_idx)
+    AudioServer.set_bus_effect_enabled(bus_idx, effect_idx, enabled)
+    
+    var result = {"success": true, "bus_index": bus_idx, "effect_index": effect_idx, "effect_type": effect_type}
+    print(JSON.stringify(result))
+
+func set_audio_bus_volume(params: Dictionary):
+    var bus_idx = int(params.get("busIndex", 0))
+    var volume_db = float(params.get("volumeDb", 0.0))
+    
+    AudioServer.set_bus_volume_db(bus_idx, volume_db)
+    
+    var result = {"success": true, "bus_index": bus_idx, "volume_db": volume_db}
+    print(JSON.stringify(result))
+
+func create_audio_stream_player(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "AudioStreamPlayer")
+    var player_type = params.get("playerType", "AudioStreamPlayer")
+    var audio_path = params.get("audioPath", "")
+    var bus = params.get("bus", "Master")
+    var autoplay = params.get("autoplay", false)
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var player = null
+    match player_type:
+        "AudioStreamPlayer": player = AudioStreamPlayer.new()
+        "AudioStreamPlayer2D": player = AudioStreamPlayer2D.new()
+        "AudioStreamPlayer3D": player = AudioStreamPlayer3D.new()
+        _: player = AudioStreamPlayer.new()
+    
+    player.name = node_name
+    player.bus = bus
+    player.autoplay = autoplay
+    
+    if audio_path != "" and ResourceLoader.exists("res://" + audio_path):
+        player.stream = load("res://" + audio_path)
+    
+    parent.add_child(player)
+    player.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "player_type": player_type}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+# ============================================
+# Networking Functions
+# ============================================
+
+func create_http_request(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "HTTPRequest")
+    var timeout = float(params.get("timeout", 10.0))
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var http = HTTPRequest.new()
+    http.name = node_name
+    http.timeout = timeout
+    
+    parent.add_child(http)
+    http.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "timeout": timeout}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func create_multiplayer_spawner(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "MultiplayerSpawner")
+    var spawn_path = params.get("spawnPath", "")
+    var spawnable_scenes = params.get("spawnableScenes", [])
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var spawner = MultiplayerSpawner.new()
+    spawner.name = node_name
+    if spawn_path != "":
+        spawner.spawn_path = NodePath(spawn_path)
+    
+    parent.add_child(spawner)
+    spawner.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func create_multiplayer_synchronizer(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "MultiplayerSynchronizer")
+    var root_path = params.get("rootPath", "")
+    var replication_interval = float(params.get("replicationInterval", 0.0))
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var synchronizer = MultiplayerSynchronizer.new()
+    synchronizer.name = node_name
+    if root_path != "":
+        synchronizer.root_path = NodePath(root_path)
+    synchronizer.replication_interval = replication_interval
+    
+    parent.add_child(synchronizer)
+    synchronizer.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+# ============================================
+# Physics Functions
+# ============================================
+
+func configure_physics_layer(params: Dictionary):
+    var layer_type = params.get("layerType", "2d")
+    var layer_idx = int(params.get("layerIndex", 1))
+    var layer_name = params.get("layerName", "")
+    
+    var setting_path = "layer_names/" + layer_type + "_physics/layer_" + str(layer_idx)
+    ProjectSettings.set_setting(setting_path, layer_name)
+    ProjectSettings.save()
+    
+    var result = {"success": true, "layer_type": layer_type, "layer_index": layer_idx, "layer_name": layer_name}
+    print(JSON.stringify(result))
+
+func create_physics_material(params: Dictionary):
+    var material_path = "res://" + params.get("materialPath", "")
+    var friction = float(params.get("friction", 1.0))
+    var bounce = float(params.get("bounce", 0.0))
+    var rough = params.get("rough", false)
+    var absorbent = params.get("absorbent", false)
+    
+    var material = PhysicsMaterial.new()
+    material.friction = friction
+    material.bounce = bounce
+    material.rough = rough
+    material.absorbent = absorbent
+    
+    var err = ResourceSaver.save(material, material_path)
+    
+    var result = {"success": err == OK, "path": material_path}
+    print(JSON.stringify(result))
+
+func create_raycast(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "RayCast")
+    var is_3d = params.get("is3D", false)
+    var target_pos = params.get("targetPosition", {"x": 0, "y": 100, "z": 0})
+    var collision_mask = int(params.get("collisionMask", 1))
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var raycast = null
+    if is_3d:
+        raycast = RayCast3D.new()
+        raycast.target_position = Vector3(float(target_pos.x), float(target_pos.y), float(target_pos.get("z", 0)))
+    else:
+        raycast = RayCast2D.new()
+        raycast.target_position = Vector2(float(target_pos.x), float(target_pos.y))
+    
+    raycast.name = node_name
+    raycast.collision_mask = collision_mask
+    raycast.enabled = true
+    
+    parent.add_child(raycast)
+    raycast.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "is_3d": is_3d}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func set_collision_layer_mask(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var node_path = params.get("nodePath", "")
+    var collision_layer = int(params.get("collisionLayer", 1))
+    var collision_mask = int(params.get("collisionMask", 1))
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var node = get_node_from_path(scene_root, node_path)
+    if node == null:
+        log_error("Node not found: " + node_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    node.collision_layer = collision_layer
+    node.collision_mask = collision_mask
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "collision_layer": collision_layer, "collision_mask": collision_mask}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+# ============================================
+# Navigation Functions
+# ============================================
+
+func create_navigation_region(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "NavigationRegion")
+    var is_3d = params.get("is3D", false)
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var nav_region = null
+    if is_3d:
+        nav_region = NavigationRegion3D.new()
+        nav_region.navigation_mesh = NavigationMesh.new()
+    else:
+        nav_region = NavigationRegion2D.new()
+        nav_region.navigation_polygon = NavigationPolygon.new()
+    
+    nav_region.name = node_name
+    parent.add_child(nav_region)
+    nav_region.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "is_3d": is_3d}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func create_navigation_agent(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "NavigationAgent")
+    var is_3d = params.get("is3D", false)
+    var path_desired_distance = float(params.get("pathDesiredDistance", 4.0))
+    var target_desired_distance = float(params.get("targetDesiredDistance", 4.0))
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var nav_agent = null
+    if is_3d:
+        nav_agent = NavigationAgent3D.new()
+    else:
+        nav_agent = NavigationAgent2D.new()
+    
+    nav_agent.name = node_name
+    nav_agent.path_desired_distance = path_desired_distance
+    nav_agent.target_desired_distance = target_desired_distance
+    
+    parent.add_child(nav_agent)
+    nav_agent.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "is_3d": is_3d}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func configure_navigation_layers(params: Dictionary):
+    var is_3d = params.get("is3D", false)
+    var layer_idx = int(params.get("layerIndex", 1))
+    var layer_name = params.get("layerName", "")
+    
+    var type_str = "3d" if is_3d else "2d"
+    var setting_path = "layer_names/" + type_str + "_navigation/layer_" + str(layer_idx)
+    ProjectSettings.set_setting(setting_path, layer_name)
+    ProjectSettings.save()
+    
+    var result = {"success": true, "is_3d": is_3d, "layer_index": layer_idx, "layer_name": layer_name}
+    print(JSON.stringify(result))
+
+# ============================================
+# Rendering Functions
+# ============================================
+
+func create_environment_resource(params: Dictionary):
+    var resource_path = "res://" + params.get("resourcePath", "")
+    var bg_mode_str = params.get("backgroundMode", "sky")
+    var bg_color = params.get("backgroundColor", {"r": 0.3, "g": 0.3, "b": 0.3})
+    var ambient_color = params.get("ambientLightColor", {"r": 1.0, "g": 1.0, "b": 1.0})
+    var ambient_energy = float(params.get("ambientLightEnergy", 1.0))
+    var glow_enabled = params.get("glowEnabled", false)
+    var fog_enabled = params.get("fogEnabled", false)
+    
+    var env = Environment.new()
+    
+    match bg_mode_str:
+        "sky": env.background_mode = Environment.BG_SKY
+        "color": 
+            env.background_mode = Environment.BG_COLOR
+            env.background_color = Color(float(bg_color.r), float(bg_color.g), float(bg_color.b))
+        "canvas": env.background_mode = Environment.BG_CANVAS
+        _: env.background_mode = Environment.BG_SKY
+    
+    env.ambient_light_color = Color(float(ambient_color.r), float(ambient_color.g), float(ambient_color.b))
+    env.ambient_light_energy = ambient_energy
+    env.glow_enabled = glow_enabled
+    env.volumetric_fog_enabled = fog_enabled
+    
+    var err = ResourceSaver.save(env, resource_path)
+    
+    var result = {"success": err == OK, "path": resource_path}
+    print(JSON.stringify(result))
+
+func create_world_environment(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "WorldEnvironment")
+    var env_path = params.get("environmentPath", "")
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var world_env = WorldEnvironment.new()
+    world_env.name = node_name
+    
+    if env_path != "" and ResourceLoader.exists("res://" + env_path):
+        world_env.environment = load("res://" + env_path)
+    else:
+        world_env.environment = Environment.new()
+    
+    parent.add_child(world_env)
+    world_env.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func create_light(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "Light")
+    var light_type = params.get("lightType", "DirectionalLight3D")
+    var color = params.get("color", {"r": 1.0, "g": 1.0, "b": 1.0})
+    var energy = float(params.get("energy", 1.0))
+    var shadow_enabled = params.get("shadowEnabled", false)
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var light = null
+    match light_type:
+        "DirectionalLight3D": light = DirectionalLight3D.new()
+        "OmniLight3D": light = OmniLight3D.new()
+        "SpotLight3D": light = SpotLight3D.new()
+        "DirectionalLight2D": light = DirectionalLight2D.new()
+        "PointLight2D": light = PointLight2D.new()
+        _: light = DirectionalLight3D.new()
+    
+    light.name = node_name
+    
+    if light is Light3D:
+        light.light_color = Color(float(color.r), float(color.g), float(color.b))
+        light.light_energy = energy
+        light.shadow_enabled = shadow_enabled
+    elif light is Light2D:
+        light.color = Color(float(color.r), float(color.g), float(color.b))
+        light.energy = energy
+        light.shadow_enabled = shadow_enabled
+    
+    parent.add_child(light)
+    light.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "light_type": light_type}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func create_camera(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "Camera")
+    var is_3d = params.get("is3D", false)
+    var current = params.get("current", false)
+    var fov = float(params.get("fov", 75.0))
+    var zoom = params.get("zoom", {"x": 1, "y": 1})
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var camera = null
+    if is_3d:
+        camera = Camera3D.new()
+        camera.fov = fov
+        camera.current = current
+    else:
+        camera = Camera2D.new()
+        camera.zoom = Vector2(float(zoom.x), float(zoom.y))
+    
+    camera.name = node_name
+    parent.add_child(camera)
+    camera.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "is_3d": is_3d}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+# ============================================
+# Animation Tree Functions
+# ============================================
+
+func create_animation_tree(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var parent_path = params.get("parentPath", "root")
+    var node_name = params.get("nodeName", "AnimationTree")
+    var anim_player_path = params.get("animPlayerPath", "")
+    var root_type = params.get("rootType", "StateMachine")
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var parent = get_node_from_path(scene_root, parent_path)
+    if parent == null:
+        log_error("Parent not found: " + parent_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var anim_tree = AnimationTree.new()
+    anim_tree.name = node_name
+    anim_tree.anim_player = NodePath(anim_player_path)
+    anim_tree.active = true
+    
+    var tree_root = null
+    match root_type:
+        "StateMachine": tree_root = AnimationNodeStateMachine.new()
+        "BlendTree": tree_root = AnimationNodeBlendTree.new()
+        "BlendSpace1D": tree_root = AnimationNodeBlendSpace1D.new()
+        "BlendSpace2D": tree_root = AnimationNodeBlendSpace2D.new()
+        _: tree_root = AnimationNodeStateMachine.new()
+    
+    anim_tree.tree_root = tree_root
+    
+    parent.add_child(anim_tree)
+    anim_tree.owner = scene_root
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node_name": node_name, "root_type": root_type}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func add_animation_state(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var anim_tree_path = params.get("animTreePath", "")
+    var state_name = params.get("stateName", "")
+    var animation_name = params.get("animationName", "")
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var anim_tree = get_node_from_path(scene_root, anim_tree_path)
+    if anim_tree == null or not anim_tree is AnimationTree:
+        log_error("AnimationTree not found: " + anim_tree_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var state_machine = anim_tree.tree_root
+    if not state_machine is AnimationNodeStateMachine:
+        log_error("Tree root is not a StateMachine")
+        scene_root.queue_free()
+        quit(1)
+    
+    var anim_node = AnimationNodeAnimation.new()
+    anim_node.animation = animation_name
+    state_machine.add_node(state_name, anim_node)
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "state_name": state_name, "animation": animation_name}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func connect_animation_states(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var anim_tree_path = params.get("animTreePath", "")
+    var from_state = params.get("fromState", "")
+    var to_state = params.get("toState", "")
+    var transition_type = params.get("transitionType", "immediate")
+    var advance_condition = params.get("advanceCondition", "")
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var anim_tree = get_node_from_path(scene_root, anim_tree_path)
+    if anim_tree == null or not anim_tree is AnimationTree:
+        log_error("AnimationTree not found: " + anim_tree_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    var state_machine = anim_tree.tree_root
+    if not state_machine is AnimationNodeStateMachine:
+        log_error("Tree root is not a StateMachine")
+        scene_root.queue_free()
+        quit(1)
+    
+    var transition = AnimationNodeStateMachineTransition.new()
+    match transition_type:
+        "immediate": transition.switch_mode = AnimationNodeStateMachineTransition.SWITCH_MODE_IMMEDIATE
+        "sync": transition.switch_mode = AnimationNodeStateMachineTransition.SWITCH_MODE_SYNC
+        "at_end": transition.switch_mode = AnimationNodeStateMachineTransition.SWITCH_MODE_AT_END
+    
+    if advance_condition != "":
+        transition.advance_condition = advance_condition
+    
+    state_machine.add_transition(from_state, to_state, transition)
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "from": from_state, "to": to_state}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+func set_animation_tree_parameter(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var anim_tree_path = params.get("animTreePath", "")
+    var parameter_path = params.get("parameterPath", "")
+    var value = params.get("value", null)
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var anim_tree = get_node_from_path(scene_root, anim_tree_path)
+    if anim_tree == null or not anim_tree is AnimationTree:
+        log_error("AnimationTree not found: " + anim_tree_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    anim_tree.set(parameter_path, value)
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "parameter": parameter_path, "value": value}
+    print(JSON.stringify(result))
+    scene_root.queue_free()
+
+# ============================================
+# UI/Theme Functions
+# ============================================
+
+func create_theme_resource(params: Dictionary):
+    var theme_path = "res://" + params.get("themePath", "")
+    var base_theme_path = params.get("baseThemePath", "")
+    
+    var theme = Theme.new()
+    
+    if base_theme_path != "" and ResourceLoader.exists("res://" + base_theme_path):
+        var base = load("res://" + base_theme_path) as Theme
+        if base:
+            theme = base.duplicate() as Theme
+    
+    var err = ResourceSaver.save(theme, theme_path)
+    
+    var result = {"success": err == OK, "path": theme_path}
+    print(JSON.stringify(result))
+
+func set_theme_color(params: Dictionary):
+    var theme_path = "res://" + params.get("themePath", "")
+    var control_type = params.get("controlType", "Button")
+    var color_name = params.get("colorName", "font_color")
+    var color = params.get("color", {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0})
+    
+    if not ResourceLoader.exists(theme_path):
+        log_error("Theme not found: " + theme_path)
+        quit(1)
+    
+    var theme = load(theme_path) as Theme
+    if not theme:
+        log_error("Failed to load theme")
+        quit(1)
+    
+    theme.set_color(color_name, control_type, Color(float(color.r), float(color.g), float(color.b), float(color.get("a", 1.0))))
+    ResourceSaver.save(theme, theme_path)
+    
+    var result = {"success": true, "control": control_type, "color_name": color_name}
+    print(JSON.stringify(result))
+
+func set_theme_font_size(params: Dictionary):
+    var theme_path = "res://" + params.get("themePath", "")
+    var control_type = params.get("controlType", "Button")
+    var font_size_name = params.get("fontSizeName", "font_size")
+    var size = int(params.get("size", 16))
+    
+    if not ResourceLoader.exists(theme_path):
+        log_error("Theme not found: " + theme_path)
+        quit(1)
+    
+    var theme = load(theme_path) as Theme
+    if not theme:
+        log_error("Failed to load theme")
+        quit(1)
+    
+    theme.set_font_size(font_size_name, control_type, size)
+    ResourceSaver.save(theme, theme_path)
+    
+    var result = {"success": true, "control": control_type, "font_size_name": font_size_name, "size": size}
+    print(JSON.stringify(result))
+
+func apply_theme_to_node(params: Dictionary):
+    var scene_path = "res://" + params.get("scenePath", "")
+    var node_path = params.get("nodePath", "")
+    var theme_path = "res://" + params.get("themePath", "")
+    
+    var scene = load(scene_path)
+    if scene == null:
+        log_error("Failed to load scene: " + scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    var node = get_node_from_path(scene_root, node_path)
+    if node == null:
+        log_error("Node not found: " + node_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    if not node is Control:
+        log_error("Node is not a Control")
+        scene_root.queue_free()
+        quit(1)
+    
+    if not ResourceLoader.exists(theme_path):
+        log_error("Theme not found: " + theme_path)
+        scene_root.queue_free()
+        quit(1)
+    
+    node.theme = load(theme_path)
+    
+    var packed = PackedScene.new()
+    packed.pack(scene_root)
+    ResourceSaver.save(packed, scene_path)
+    
+    var result = {"success": true, "node": node_path, "theme": theme_path}
     print(JSON.stringify(result))
     scene_root.queue_free()
