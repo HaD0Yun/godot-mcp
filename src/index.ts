@@ -938,11 +938,11 @@ class GodotServer {
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Path to Godot project directory',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to scene file (relative to project)',
               },
               parentNodePath: {
                 type: 'string',
@@ -964,6 +964,7 @@ class GodotServer {
             },
             required: ['projectPath', 'scenePath', 'parentNodePath', 'lightType', 'nodeName'],
           },
+        },
         {
           name: 'configure_light',
           description: 'Configure properties of an existing light node',
@@ -972,11 +973,11 @@ class GodotServer {
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Path to Godot project directory',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to scene file (relative to project)',
               },
               nodePath: {
                 type: 'string',
@@ -989,6 +990,7 @@ class GodotServer {
             },
             required: ['projectPath', 'scenePath', 'nodePath', 'properties'],
           },
+        },
         {
           name: 'create_lightmap_gi',
           description: 'Create a LightmapGI node for baked lighting in a scene',
@@ -997,11 +999,11 @@ class GodotServer {
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Path to Godot project directory',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to scene file (relative to project)',
               },
               parentNodePath: {
                 type: 'string',
@@ -1018,6 +1020,7 @@ class GodotServer {
             },
             required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
           },
+        },
         {
           name: 'configure_shadow',
           description: 'Configure shadow settings for a light node',
@@ -1026,11 +1029,11 @@ class GodotServer {
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Path to Godot project directory',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to scene file (relative to project)',
               },
               nodePath: {
                 type: 'string',
@@ -2395,6 +2398,319 @@ class GodotServer {
       return this.createErrorResponse(
         `Failed to get info: ${error?.message || 'Unknown error'}`,
         ['Check if server is running correctly', 'Verify file system access permissions']
+      );
+    }
+  }
+
+  /**
+   * Handle the create_light tool
+   * Create OmniLight3D, SpotLight3D, or DirectionalLight3D nodes
+   * @param args Tool arguments
+   */
+  private async handleCreateLight(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.lightType || !args.nodeName) {
+      return this.createErrorResponse(
+        'Missing required parameters',
+        ['Provide projectPath, scenePath, parentNodePath, lightType, and nodeName']
+      );
+    }
+
+    if (
+      !this.validatePath(args.projectPath) ||
+      !this.validatePath(args.scenePath) ||
+      !this.validatePath(args.parentNodePath)
+    ) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Provide valid paths without ".." or other potentially unsafe characters']
+      );
+    }
+
+    try {
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          ['Ensure the path points to a directory containing a project.godot file']
+        );
+      }
+
+      const scenePath = join(args.projectPath, args.scenePath);
+      if (!existsSync(scenePath)) {
+        return this.createErrorResponse(
+          `Scene file does not exist: ${args.scenePath}`,
+          ['Ensure the scene path is correct', 'Use create_scene to create a new scene first']
+        );
+      }
+
+      const params: any = {
+        scenePath: args.scenePath,
+        parentNodePath: args.parentNodePath,
+        lightType: args.lightType,
+        nodeName: args.nodeName,
+      };
+
+      if (args.properties) {
+        params.properties = args.properties;
+      }
+
+      const { stdout, stderr } = await this.executeOperation('create_light', params, args.projectPath);
+
+      if (stderr && stderr.includes('Failed to')) {
+        return this.createErrorResponse(
+          `Failed to create light: ${stderr}`,
+          ['Check if the light type is valid', 'Ensure the parent node path is correct']
+        );
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Light '${args.nodeName}' of type ${args.lightType} created successfully.\n\nOutput: ${stdout}`,
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to create light: ${error?.message || 'Unknown error'}`,
+        ['Ensure Godot is installed correctly', 'Verify the project path is accessible']
+      );
+    }
+  }
+
+  /**
+   * Handle the configure_light tool
+   * Configure light properties
+   * @param args Tool arguments
+   */
+  private async handleConfigureLight(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.scenePath || !args.nodePath || !args.properties) {
+      return this.createErrorResponse(
+        'Missing required parameters',
+        ['Provide projectPath, scenePath, nodePath, and properties']
+      );
+    }
+
+    if (
+      !this.validatePath(args.projectPath) ||
+      !this.validatePath(args.scenePath) ||
+      !this.validatePath(args.nodePath)
+    ) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Provide valid paths without ".." or other potentially unsafe characters']
+      );
+    }
+
+    try {
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          ['Ensure the path points to a directory containing a project.godot file']
+        );
+      }
+
+      const scenePath = join(args.projectPath, args.scenePath);
+      if (!existsSync(scenePath)) {
+        return this.createErrorResponse(
+          `Scene file does not exist: ${args.scenePath}`,
+          ['Ensure the scene path is correct']
+        );
+      }
+
+      const params: any = {
+        scenePath: args.scenePath,
+        nodePath: args.nodePath,
+        properties: args.properties,
+      };
+
+      const { stdout, stderr } = await this.executeOperation('configure_light', params, args.projectPath);
+
+      if (stderr && stderr.includes('Failed to')) {
+        return this.createErrorResponse(
+          `Failed to configure light: ${stderr}`,
+          ['Check if the node path is correct', 'Ensure the node is a valid light type']
+        );
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Light configured successfully.\n\nOutput: ${stdout}`,
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to configure light: ${error?.message || 'Unknown error'}`,
+        ['Ensure Godot is installed correctly', 'Verify the project path is accessible']
+      );
+    }
+  }
+
+  /**
+   * Handle the create_lightmap_gi tool
+   * Create LightmapGI node for baked lighting
+   * @param args Tool arguments
+   */
+  private async handleCreateLightmapGi(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse(
+        'Missing required parameters',
+        ['Provide projectPath, scenePath, parentNodePath, and nodeName']
+      );
+    }
+
+    if (
+      !this.validatePath(args.projectPath) ||
+      !this.validatePath(args.scenePath) ||
+      !this.validatePath(args.parentNodePath)
+    ) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Provide valid paths without ".." or other potentially unsafe characters']
+      );
+    }
+
+    try {
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          ['Ensure the path points to a directory containing a project.godot file']
+        );
+      }
+
+      const scenePath = join(args.projectPath, args.scenePath);
+      if (!existsSync(scenePath)) {
+        return this.createErrorResponse(
+          `Scene file does not exist: ${args.scenePath}`,
+          ['Ensure the scene path is correct', 'Use create_scene to create a new scene first']
+        );
+      }
+
+      const params: any = {
+        scenePath: args.scenePath,
+        parentNodePath: args.parentNodePath,
+        nodeName: args.nodeName,
+      };
+
+      if (args.properties) {
+        params.properties = args.properties;
+      }
+
+      const { stdout, stderr } = await this.executeOperation('create_lightmap_gi', params, args.projectPath);
+
+      if (stderr && stderr.includes('Failed to')) {
+        return this.createErrorResponse(
+          `Failed to create LightmapGI: ${stderr}`,
+          ['Check if the parent node path is correct']
+        );
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `LightmapGI '${args.nodeName}' created successfully.\n\nOutput: ${stdout}`,
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to create LightmapGI: ${error?.message || 'Unknown error'}`,
+        ['Ensure Godot is installed correctly', 'Verify the project path is accessible']
+      );
+    }
+  }
+
+  /**
+   * Handle the configure_shadow tool
+   * Configure shadow settings for a light node
+   * @param args Tool arguments
+   */
+  private async handleConfigureShadow(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.scenePath || !args.nodePath || args.shadowEnabled === undefined) {
+      return this.createErrorResponse(
+        'Missing required parameters',
+        ['Provide projectPath, scenePath, nodePath, and shadowEnabled']
+      );
+    }
+
+    if (
+      !this.validatePath(args.projectPath) ||
+      !this.validatePath(args.scenePath) ||
+      !this.validatePath(args.nodePath)
+    ) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Provide valid paths without ".." or other potentially unsafe characters']
+      );
+    }
+
+    try {
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          ['Ensure the path points to a directory containing a project.godot file']
+        );
+      }
+
+      const scenePath = join(args.projectPath, args.scenePath);
+      if (!existsSync(scenePath)) {
+        return this.createErrorResponse(
+          `Scene file does not exist: ${args.scenePath}`,
+          ['Ensure the scene path is correct']
+        );
+      }
+
+      const params: any = {
+        scenePath: args.scenePath,
+        nodePath: args.nodePath,
+        shadowEnabled: args.shadowEnabled,
+      };
+
+      if (args.shadowType !== undefined) {
+        params.shadowType = args.shadowType;
+      }
+
+      if (args.properties) {
+        params.properties = args.properties;
+      }
+
+      const { stdout, stderr } = await this.executeOperation('configure_shadow', params, args.projectPath);
+
+      if (stderr && stderr.includes('Failed to')) {
+        return this.createErrorResponse(
+          `Failed to configure shadow: ${stderr}`,
+          ['Check if the node path is correct', 'Ensure the node is a valid light type with shadow support']
+        );
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Shadow settings configured successfully.\n\nOutput: ${stdout}`,
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to configure shadow: ${error?.message || 'Unknown error'}`,
+        ['Ensure Godot is installed correctly', 'Verify the project path is accessible']
       );
     }
   }

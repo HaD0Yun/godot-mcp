@@ -1011,6 +1011,498 @@ func save_scene(params):
     else:
         printerr("Failed to pack scene: " + str(result))
 
+# Create a light node (OmniLight3D, SpotLight3D, or DirectionalLight3D)
+func create_light(params):
+    print("Creating light node: " + params.node_name + " of type: " + params.light_type + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    if debug_mode:
+        print("Scene path (with res://): " + full_scene_path)
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if debug_mode:
+        print("Absolute scene path: " + absolute_scene_path)
+    
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    if debug_mode:
+        print("Scene loaded successfully")
+    
+    var scene_root = scene.instantiate()
+    if debug_mode:
+        print("Scene instantiated")
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    if debug_mode:
+        print("Parent path: " + parent_path)
+    
+    var parent = scene_root
+    if parent_path != "root":
+        parent = scene_root.get_node(parent_path.replace("root/", ""))
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    if debug_mode:
+        print("Parent node found: " + parent.name)
+    
+    # Create light node based on type
+    var light_node = null
+    match params.light_type:
+        "OmniLight3D":
+            light_node = OmniLight3D.new()
+        "SpotLight3D":
+            light_node = SpotLight3D.new()
+        "DirectionalLight3D":
+            light_node = DirectionalLight3D.new()
+        _:
+            printerr("Unknown light type: " + params.light_type)
+            quit(1)
+    
+    light_node.name = params.node_name
+    if debug_mode:
+        print("Light node created with name: " + light_node.name)
+    
+    # Set properties if provided
+    if params.has("properties"):
+        var properties = params.properties
+        if properties.has("light_color"):
+            light_node.light_color = Color(properties.light_color)
+        if properties.has("light_energy"):
+            light_node.light_energy = properties.light_energy
+        if properties.has("light_indirect_energy"):
+            light_node.light_indirect_energy = properties.light_indirect_energy
+        if properties.has("light_specular"):
+            light_node.light_specular = properties.light_specular
+        if properties.has("light_size"):
+            light_node.light_size = properties.light_size
+        if properties.has("shadow_enabled"):
+            light_node.shadow_enabled = properties.shadow_enabled
+        if properties.has("shadow_bias"):
+            light_node.shadow_bias = properties.shadow_bias
+        if properties.has("shadow_normal_bias"):
+            light_node.shadow_normal_bias = properties.shadow_normal_bias
+        if properties.has("shadow_transmittance"):
+            light_node.shadow_transmittance = properties.shadow_transmittance
+        if properties.has("shadow_opacity"):
+            light_node.shadow_opacity = properties.shadow_opacity
+        if properties.has("shadow_blur"):
+            light_node.shadow_blur = properties.shadow_blur
+        if properties.has("light_negative"):
+            light_node.light_negative = properties.light_negative
+        
+        # OmniLight3D specific properties
+        if light_node is OmniLight3D:
+            if properties.has("omni_range"):
+                light_node.omni_range = properties.omni_range
+            if properties.has("omni_attenuation"):
+                light_node.omni_attenuation = properties.omni_attenuation
+            if properties.has("omni_shadow_mode"):
+                light_node.omni_shadow_mode = properties.omni_shadow_mode
+        
+        # SpotLight3D specific properties
+        elif light_node is SpotLight3D:
+            if properties.has("spot_range"):
+                light_node.spot_range = properties.spot_range
+            if properties.has("spot_attenuation"):
+                light_node.spot_attenuation = properties.spot_attenuation
+            if properties.has("spot_angle"):
+                light_node.spot_angle = properties.spot_angle
+            if properties.has("spot_angle_attenuation"):
+                light_node.spot_angle_attenuation = properties.spot_angle_attenuation
+            if properties.has("spot_shadow_mode"):
+                light_node.spot_shadow_mode = properties.spot_shadow_mode
+        
+        # DirectionalLight3D specific properties
+        elif light_node is DirectionalLight3D:
+            if properties.has("directional_shadow_mode"):
+                light_node.directional_shadow_mode = properties.directional_shadow_mode
+            if properties.has("directional_slope_angle_min"):
+                light_node.directional_slope_angle_min = properties.directional_slope_angle_min
+            if properties.has("directional_slope_angle_max"):
+                light_node.directional_slope_angle_max = properties.directional_slope_angle_max
+            if properties.has("split_1_shadow_bias"):
+                light_node.split_1_shadow_bias = properties.split_1_shadow_bias
+            if properties.has("split_2_shadow_bias"):
+                light_node.split_2_shadow_bias = properties.split_2_shadow_bias
+            if properties.has("split_3_shadow_bias"):
+                light_node.split_3_shadow_bias = properties.split_3_shadow_bias
+            if properties.has("split_4_shadow_bias"):
+                light_node.split_4_shadow_bias = properties.split_4_shadow_bias
+            if properties.has("blend_splits"):
+                light_node.blend_splits = properties.blend_splits
+    
+    parent.add_child(light_node)
+    light_node.owner = scene_root
+    if debug_mode:
+        print("Light node added to parent and ownership set")
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if debug_mode:
+        print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
+    
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if debug_mode:
+            print("Save result: " + str(error) + " (OK=" + str(OK) + ")")
+        if error == OK:
+            print("Light '" + params.node_name + "' of type '" + params.light_type + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Configure light properties
+func configure_light(params):
+    print("Configuring light node: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    if debug_mode:
+        print("Scene path (with res://): " + full_scene_path)
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if debug_mode:
+        print("Absolute scene path: " + absolute_scene_path)
+    
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    if debug_mode:
+        print("Scene loaded successfully")
+    
+    var scene_root = scene.instantiate()
+    if debug_mode:
+        print("Scene instantiated")
+    
+    # Find light node
+    var node_path = params.node_path
+    if debug_mode:
+        print("Original node path: " + node_path)
+    
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+        if debug_mode:
+            print("Node path after removing 'root/' prefix: " + node_path)
+    
+    var light_node = scene_root.get_node(node_path)
+    if not light_node:
+        printerr("Light node not found: " + params.node_path)
+        quit(1)
+    
+    if not (light_node is Light3D):
+        printerr("Node is not a Light3D: " + light_node.get_class())
+        quit(1)
+    
+    if debug_mode:
+        print("Node class: " + light_node.get_class())
+    
+    # Set properties on light node
+    if params.has("properties"):
+        var properties = params.properties
+        if debug_mode:
+            print("Setting properties on light node")
+        
+        # Common light properties
+        if properties.has("light_color"):
+            light_node.light_color = Color(properties.light_color)
+        if properties.has("light_energy"):
+            light_node.light_energy = properties.light_energy
+        if properties.has("light_indirect_energy"):
+            light_node.light_indirect_energy = properties.light_indirect_energy
+        if properties.has("light_specular"):
+            light_node.light_specular = properties.light_specular
+        if properties.has("light_size"):
+            light_node.light_size = properties.light_size
+        if properties.has("shadow_enabled"):
+            light_node.shadow_enabled = properties.shadow_enabled
+        if properties.has("shadow_bias"):
+            light_node.shadow_bias = properties.shadow_bias
+        if properties.has("shadow_normal_bias"):
+            light_node.shadow_normal_bias = properties.shadow_normal_bias
+        if properties.has("shadow_transmittance"):
+            light_node.shadow_transmittance = properties.shadow_transmittance
+        if properties.has("shadow_opacity"):
+            light_node.shadow_opacity = properties.shadow_opacity
+        if properties.has("shadow_blur"):
+            light_node.shadow_blur = properties.shadow_blur
+        if properties.has("light_negative"):
+            light_node.light_negative = properties.light_negative
+        
+        # OmniLight3D specific properties
+        if light_node is OmniLight3D:
+            if properties.has("omni_range"):
+                light_node.omni_range = properties.omni_range
+            if properties.has("omni_attenuation"):
+                light_node.omni_attenuation = properties.omni_attenuation
+            if properties.has("omni_shadow_mode"):
+                light_node.omni_shadow_mode = properties.omni_shadow_mode
+        
+        # SpotLight3D specific properties
+        elif light_node is SpotLight3D:
+            if properties.has("spot_range"):
+                light_node.spot_range = properties.spot_range
+            if properties.has("spot_attenuation"):
+                light_node.spot_attenuation = properties.spot_attenuation
+            if properties.has("spot_angle"):
+                light_node.spot_angle = properties.spot_angle
+            if properties.has("spot_angle_attenuation"):
+                light_node.spot_angle_attenuation = properties.spot_angle_attenuation
+            if properties.has("spot_shadow_mode"):
+                light_node.spot_shadow_mode = properties.spot_shadow_mode
+        
+        # DirectionalLight3D specific properties
+        elif light_node is DirectionalLight3D:
+            if properties.has("directional_shadow_mode"):
+                light_node.directional_shadow_mode = properties.directional_shadow_mode
+            if properties.has("directional_slope_angle_min"):
+                light_node.directional_slope_angle_min = properties.directional_slope_angle_min
+            if properties.has("directional_slope_angle_max"):
+                light_node.directional_slope_angle_max = properties.directional_slope_angle_max
+            if properties.has("split_1_shadow_bias"):
+                light_node.split_1_shadow_bias = properties.split_1_shadow_bias
+            if properties.has("split_2_shadow_bias"):
+                light_node.split_2_shadow_bias = properties.split_2_shadow_bias
+            if properties.has("split_3_shadow_bias"):
+                light_node.split_3_shadow_bias = properties.split_3_shadow_bias
+            if properties.has("split_4_shadow_bias"):
+                light_node.split_4_shadow_bias = properties.split_4_shadow_bias
+            if properties.has("blend_splits"):
+                light_node.blend_splits = properties.blend_splits
+    
+    # Save modified scene
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if debug_mode:
+        print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
+    
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if debug_mode:
+            print("Save result: " + str(error) + " (OK=" + str(OK) + ")")
+        if error == OK:
+            print("Light node configured successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Create LightmapGI node for baked lighting
+func create_lightmap_gi(params):
+    print("Creating LightmapGI node: " + params.node_name + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    if debug_mode:
+        print("Scene path (with res://): " + full_scene_path)
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if debug_mode:
+        print("Absolute scene path: " + absolute_scene_path)
+    
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    if debug_mode:
+        print("Scene loaded successfully")
+    
+    var scene_root = scene.instantiate()
+    if debug_mode:
+        print("Scene instantiated")
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    if debug_mode:
+        print("Parent path: " + parent_path)
+    
+    var parent = scene_root
+    if parent_path != "root":
+        parent = scene_root.get_node(parent_path.replace("root/", ""))
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    if debug_mode:
+        print("Parent node found: " + parent.name)
+    
+    # Create LightmapGI node
+    var lightmap_node = LightmapGI.new()
+    lightmap_node.name = params.node_name
+    if debug_mode:
+        print("LightmapGI node created with name: " + lightmap_node.name)
+    
+    # Set properties if provided
+    if params.has("properties"):
+        var properties = params.properties
+        if properties.has("bake_quality"):
+            lightmap_node.bake_quality = properties.bake_quality
+        if properties.has("bake_mode"):
+            lightmap_node.bake_mode = properties.bake_mode
+        if properties.has("bounce_indirect_energy"):
+            lightmap_node.bounce_indirect_energy = properties.bounce_indirect_energy
+        if properties.has("directional"):
+            lightmap_node.directional = properties.directional
+        if properties.has("use_denoiser"):
+            lightmap_node.use_denoiser = properties.use_denoiser
+        if properties.has("denoiser_strength"):
+            lightmap_node.denoiser_strength = properties.denoiser_strength
+        if properties.has("denoiser_range"):
+            lightmap_node.denoiser_range = properties.denoiser_range
+        if properties.has("environment_mode"):
+            lightmap_node.environment_mode = properties.environment_mode
+        if properties.has("max_texture_size"):
+            lightmap_node.max_texture_size = properties.max_texture_size
+        if properties.has("light_data"):
+            lightmap_node.light_data = properties.light_data
+    
+    parent.add_child(lightmap_node)
+    lightmap_node.owner = scene_root
+    if debug_mode:
+        print("LightmapGI node added to parent and ownership set")
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if debug_mode:
+        print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
+    
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if debug_mode:
+            print("Save result: " + str(error) + " (OK=" + str(OK) + ")")
+        if error == OK:
+            print("LightmapGI '" + params.node_name + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Configure shadow settings for a light node
+func configure_shadow(params):
+    print("Configuring shadow settings for light node: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    if debug_mode:
+        print("Scene path (with res://): " + full_scene_path)
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if debug_mode:
+        print("Absolute scene path: " + absolute_scene_path)
+    
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    if debug_mode:
+        print("Scene loaded successfully")
+    
+    var scene_root = scene.instantiate()
+    if debug_mode:
+        print("Scene instantiated")
+    
+    # Find light node
+    var node_path = params.node_path
+    if debug_mode:
+        print("Original node path: " + node_path)
+    
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+        if debug_mode:
+            print("Node path after removing 'root/' prefix: " + node_path)
+    
+    var light_node = scene_root.get_node(node_path)
+    if not light_node:
+        printerr("Light node not found: " + params.node_path)
+        quit(1)
+    
+    if not (light_node is Light3D):
+        printerr("Node is not a Light3D: " + light_node.get_class())
+        quit(1)
+    
+    if debug_mode:
+        print("Node class: " + light_node.get_class())
+    
+    # Configure shadow settings
+    if params.has("shadow_enabled"):
+        light_node.shadow_enabled = params.shadow_enabled
+        if debug_mode:
+            print("Set shadow_enabled: " + str(params.shadow_enabled))
+    
+    if params.has("shadow_type"):
+        light_node.shadow_casting_bit = int(params.shadow_type)
+        if debug_mode:
+            print("Set shadow_casting_bit: " + str(params.shadow_type))
+    
+    # Set additional shadow properties if provided
+    if params.has("properties"):
+        var properties = params.properties
+        if debug_mode:
+            print("Setting additional shadow properties")
+        
+        if properties.has("shadow_bias"):
+            light_node.shadow_bias = properties.shadow_bias
+        if properties.has("shadow_normal_bias"):
+            light_node.shadow_normal_bias = properties.shadow_normal_bias
+        if properties.has("shadow_transmittance"):
+            light_node.shadow_transmittance = properties.shadow_transmittance
+        if properties.has("shadow_opacity"):
+            light_node.shadow_opacity = properties.shadow_opacity
+        if properties.has("shadow_blur"):
+            light_node.shadow_blur = properties.shadow_blur
+    
+    # Save modified scene
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if debug_mode:
+        print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
+    
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if debug_mode:
+            print("Save result: " + str(error) + " (OK=" + str(OK) + ")")
+        if error == OK:
+            print("Shadow settings configured successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+        printerr("Error code: " + str(result))
+        quit(1)
+
 # Set properties on an existing node
 func set_node_properties(params):
     print("Setting properties on node: " + params.node_path + " in scene: " + params.scene_path)
