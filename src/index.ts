@@ -1,11 +1,3 @@
-#!/usr/bin/env node
-/**
- * Godot MCP Server
- *
- * This MCP server provides tools for interacting with the Godot game engine.
- * It enables AI assistants to launch the Godot editor, run Godot projects,
- * capture debug output, and control project execution.
- */
 
 import { fileURLToPath } from 'url';
 import { join, dirname, basename, normalize } from 'path';
@@ -87,9 +79,10 @@ class GodotServer {
     'mesh_item_names': 'meshItemNames',
     'new_path': 'newPath',
     'file_path': 'filePath',
-    'directory': 'directory',
-    'recursive': 'recursive',
-    'scene': 'scene',
+    'light_type': 'lightType',
+    'properties': 'properties',
+    'shadow_enabled': 'shadowEnabled',
+    'shadow_type': 'shadowType',
   };
 
   /**
@@ -937,9 +930,132 @@ class GodotServer {
             required: [],
           },
         },
+        {
+          name: 'create_light',
+          description: 'Create a light node (OmniLight3D, SpotLight3D, or DirectionalLight3D) in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              parentNodePath: {
+                type: 'string',
+                description: 'Path to parent node (e.g., "root/World")',
+              },
+              lightType: {
+                type: 'string',
+                enum: ['OmniLight3D', 'SpotLight3D', 'DirectionalLight3D'],
+                description: 'Type of light to create',
+              },
+              nodeName: {
+                type: 'string',
+                description: 'Name for the light node',
+              },
+              properties: {
+                type: 'object',
+                description: 'Light properties (color, energy, range, etc.)',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'lightType', 'nodeName'],
+          },
+        {
+          name: 'configure_light',
+          description: 'Configure properties of an existing light node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              nodePath: {
+                type: 'string',
+                description: 'Path to the light node',
+              },
+              properties: {
+                type: 'object',
+                description: 'Properties: light_color, light_energy, shadow_enabled, shadow_bias, omni_range, spot_range, spot_angle, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'properties'],
+          },
+        {
+          name: 'create_lightmap_gi',
+          description: 'Create a LightmapGI node for baked lighting in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              parentNodePath: {
+                type: 'string',
+                description: 'Path to parent node (e.g., "root/World")',
+              },
+              nodeName: {
+                type: 'string',
+                description: 'Name for the LightmapGI node',
+              },
+              properties: {
+                type: 'object',
+                description: 'LightmapGI properties: bake_quality, bounce_indirect_energy, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        {
+          name: 'configure_shadow',
+          description: 'Configure shadow settings for a light node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              nodePath: {
+                type: 'string',
+                description: 'Path to the light node',
+              },
+              shadowEnabled: {
+                type: 'boolean',
+                description: 'Enable or disable shadows',
+              },
+              shadowType: {
+                type: 'string',
+                enum: ['0', '1', '2'],
+                description: 'Shadow type (0=disabled, 1=opaque shadow, 2=transparent shadow)',
+              },
+              properties: {
+                type: 'object',
+                description: 'Additional shadow properties: shadow_bias, shadow_normal_bias, shadow_transmittance, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'shadowEnabled'],
+          },
+        },
       ],
     }));
-
+    
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       this.logDebug(`Handling tool request: ${request.params.name}`);
@@ -974,6 +1090,14 @@ class GodotServer {
           return await this.handleUpdateProjectUids(request.params.arguments);
         case 'info':
           return await this.handleInfo(request.params.arguments);
+        case 'create_light':
+          return await this.handleCreateLight(request.params.arguments);
+        case 'configure_light':
+          return await this.handleConfigureLight(request.params.arguments);
+        case 'create_lightmap_gi':
+          return await this.handleCreateLightmapGi(request.params.arguments);
+        case 'configure_shadow':
+          return await this.handleConfigureShadow(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -2207,7 +2331,7 @@ class GodotServer {
       }
 
       // Count available tools
-      const toolCount = 15; // Current count of tools (launch_editor, run_project, etc.)
+      const toolCount = 19; // Current count of tools (launch_editor, run_project, etc.)
 
       // Check for detected issues
       const detectedIssues: string[] = [];
