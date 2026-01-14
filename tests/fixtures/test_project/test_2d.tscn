@@ -1,7 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://test_2d_scene"]
-
-[SubResource type="RectangleShape2D" id="RectangleShape2D_1"]
-size = Vector2(100, 100)
+[gd_scene load_steps=1 format=3 uid="uid://test_2d_scene"]
 
 [node name="Test2D" type="Node2D"]
 
