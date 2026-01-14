@@ -2311,6 +2311,429 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'tilemapNodePath', 'cells'],
           },
         },
+        // ==================== AUDIO SYSTEM TOOLS ====================
+        {
+          name: 'create_audio_bus',
+          description: 'Create a new audio bus with optional parent bus',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              busName: { type: 'string', description: 'Name for the new audio bus' },
+              parentBusIndex: { type: 'number', description: 'Parent bus index (default: 0 for Master)' },
+            },
+            required: ['projectPath', 'busName'],
+          },
+        },
+        {
+          name: 'get_audio_buses',
+          description: 'List all audio buses and their configuration',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'set_audio_bus_effect',
+          description: 'Add or configure an effect on an audio bus',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              busIndex: { type: 'number', description: 'Audio bus index' },
+              effectIndex: { type: 'number', description: 'Effect slot index' },
+              effectType: { type: 'string', description: 'Effect type (Reverb, Delay, Chorus, etc.)' },
+              enabled: { type: 'boolean', description: 'Whether effect is enabled' },
+            },
+            required: ['projectPath', 'busIndex', 'effectIndex', 'effectType'],
+          },
+        },
+        {
+          name: 'set_audio_bus_volume',
+          description: 'Set volume for an audio bus',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              busIndex: { type: 'number', description: 'Audio bus index' },
+              volumeDb: { type: 'number', description: 'Volume in decibels' },
+            },
+            required: ['projectPath', 'busIndex', 'volumeDb'],
+          },
+        },
+        {
+          name: 'create_audio_stream_player',
+          description: 'Create an AudioStreamPlayer node in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the audio player' },
+              playerType: { type: 'string', enum: ['AudioStreamPlayer', 'AudioStreamPlayer2D', 'AudioStreamPlayer3D'], description: 'Type of audio player' },
+              audioPath: { type: 'string', description: 'Path to audio file (optional)' },
+              bus: { type: 'string', description: 'Audio bus name (default: Master)' },
+              autoplay: { type: 'boolean', description: 'Auto-play on ready' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        // ==================== NETWORKING TOOLS ====================
+        {
+          name: 'create_http_request',
+          description: 'Create an HTTPRequest node in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the HTTPRequest node' },
+              timeout: { type: 'number', description: 'Request timeout in seconds' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        {
+          name: 'create_multiplayer_spawner',
+          description: 'Create a MultiplayerSpawner node for network replication',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the spawner' },
+              spawnPath: { type: 'string', description: 'Node path where spawned nodes appear' },
+              spawnableScenes: { type: 'array', items: { type: 'string' }, description: 'List of spawnable scene paths' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        {
+          name: 'create_multiplayer_synchronizer',
+          description: 'Create a MultiplayerSynchronizer node for property sync',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the synchronizer' },
+              rootPath: { type: 'string', description: 'Root node path to synchronize' },
+              replicationInterval: { type: 'number', description: 'Sync interval in seconds' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        // ==================== PHYSICS TOOLS ====================
+        {
+          name: 'configure_physics_layer',
+          description: 'Set name for a physics layer',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              layerType: { type: 'string', enum: ['2d', '3d'], description: '2D or 3D physics' },
+              layerIndex: { type: 'number', description: 'Layer index (1-32)' },
+              layerName: { type: 'string', description: 'Name for the layer' },
+            },
+            required: ['projectPath', 'layerType', 'layerIndex', 'layerName'],
+          },
+        },
+        {
+          name: 'create_physics_material',
+          description: 'Create a PhysicsMaterial resource',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              materialPath: { type: 'string', description: 'Path to save the material' },
+              friction: { type: 'number', description: 'Friction coefficient (0-1)' },
+              bounce: { type: 'number', description: 'Bounce coefficient (0-1)' },
+              rough: { type: 'boolean', description: 'Use rough friction' },
+              absorbent: { type: 'boolean', description: 'Absorb bounce energy' },
+            },
+            required: ['projectPath', 'materialPath'],
+          },
+        },
+        {
+          name: 'create_raycast',
+          description: 'Create a RayCast2D or RayCast3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the raycast' },
+              is3D: { type: 'boolean', description: 'Use RayCast3D (default: false for 2D)' },
+              targetPosition: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } }, description: 'Target position for ray' },
+              collisionMask: { type: 'number', description: 'Collision mask bits' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        {
+          name: 'set_collision_layer_mask',
+          description: 'Set collision layer and mask for a physics body',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              nodePath: { type: 'string', description: 'Path to the physics body node' },
+              collisionLayer: { type: 'number', description: 'Collision layer bits' },
+              collisionMask: { type: 'number', description: 'Collision mask bits' },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath'],
+          },
+        },
+        // ==================== NAVIGATION TOOLS ====================
+        {
+          name: 'create_navigation_region',
+          description: 'Create a NavigationRegion2D or NavigationRegion3D',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the navigation region' },
+              is3D: { type: 'boolean', description: 'Use 3D navigation (default: false)' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        {
+          name: 'create_navigation_agent',
+          description: 'Create a NavigationAgent2D or NavigationAgent3D',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the navigation agent' },
+              is3D: { type: 'boolean', description: 'Use 3D navigation (default: false)' },
+              pathDesiredDistance: { type: 'number', description: 'Distance to consider waypoint reached' },
+              targetDesiredDistance: { type: 'number', description: 'Distance to consider target reached' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        {
+          name: 'configure_navigation_layers',
+          description: 'Set navigation layer names in project settings',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              is3D: { type: 'boolean', description: 'Configure 3D navigation layers' },
+              layerIndex: { type: 'number', description: 'Layer index (1-32)' },
+              layerName: { type: 'string', description: 'Name for the layer' },
+            },
+            required: ['projectPath', 'layerIndex', 'layerName'],
+          },
+        },
+        // ==================== RENDERING TOOLS ====================
+        {
+          name: 'create_environment',
+          description: 'Create an Environment resource',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              resourcePath: { type: 'string', description: 'Path to save the environment' },
+              backgroundMode: { type: 'string', enum: ['sky', 'color', 'canvas'], description: 'Background mode' },
+              backgroundColor: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' } }, description: 'Background color' },
+              ambientLightColor: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' } }, description: 'Ambient light color' },
+              ambientLightEnergy: { type: 'number', description: 'Ambient light energy' },
+              tonemapMode: { type: 'string', enum: ['linear', 'reinhard', 'filmic', 'aces'], description: 'Tonemap mode' },
+              glowEnabled: { type: 'boolean', description: 'Enable glow effect' },
+              fogEnabled: { type: 'boolean', description: 'Enable volumetric fog' },
+            },
+            required: ['projectPath', 'resourcePath'],
+          },
+        },
+        {
+          name: 'create_world_environment',
+          description: 'Create a WorldEnvironment node in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the WorldEnvironment' },
+              environmentPath: { type: 'string', description: 'Path to Environment resource' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        {
+          name: 'create_light',
+          description: 'Create a light node (DirectionalLight3D, OmniLight3D, SpotLight3D, etc.)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the light' },
+              lightType: { type: 'string', enum: ['DirectionalLight3D', 'OmniLight3D', 'SpotLight3D', 'DirectionalLight2D', 'PointLight2D'], description: 'Type of light' },
+              color: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' } }, description: 'Light color' },
+              energy: { type: 'number', description: 'Light energy/intensity' },
+              shadowEnabled: { type: 'boolean', description: 'Enable shadows' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName', 'lightType'],
+          },
+        },
+        {
+          name: 'create_camera',
+          description: 'Create a Camera2D or Camera3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for the camera' },
+              is3D: { type: 'boolean', description: 'Use Camera3D (default: false for 2D)' },
+              current: { type: 'boolean', description: 'Set as current camera' },
+              fov: { type: 'number', description: 'Field of view (3D only)' },
+              zoom: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' } }, description: 'Camera zoom (2D only)' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
+          },
+        },
+        // ==================== ANIMATION TREE TOOLS ====================
+        {
+          name: 'create_animation_tree',
+          description: 'Create an AnimationTree node linked to an AnimationPlayer',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              parentPath: { type: 'string', description: 'Parent node path' },
+              nodeName: { type: 'string', description: 'Name for AnimationTree' },
+              animPlayerPath: { type: 'string', description: 'Path to AnimationPlayer node (relative to parent)' },
+              rootType: { type: 'string', enum: ['StateMachine', 'BlendTree', 'BlendSpace1D', 'BlendSpace2D'], description: 'Root node type' },
+            },
+            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName', 'animPlayerPath'],
+          },
+        },
+        {
+          name: 'add_animation_state',
+          description: 'Add a state to an AnimationTree state machine',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
+              stateName: { type: 'string', description: 'Name for the state' },
+              animationName: { type: 'string', description: 'Animation to play in this state' },
+              stateMachinePath: { type: 'string', description: 'Path within tree to state machine (default: root)' },
+            },
+            required: ['projectPath', 'scenePath', 'animTreePath', 'stateName', 'animationName'],
+          },
+        },
+        {
+          name: 'connect_animation_states',
+          description: 'Connect two states with a transition',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
+              fromState: { type: 'string', description: 'Source state name' },
+              toState: { type: 'string', description: 'Target state name' },
+              transitionType: { type: 'string', enum: ['immediate', 'sync', 'at_end'], description: 'Transition type' },
+              advanceCondition: { type: 'string', description: 'Condition parameter name for auto-advance' },
+            },
+            required: ['projectPath', 'scenePath', 'animTreePath', 'fromState', 'toState'],
+          },
+        },
+        {
+          name: 'set_animation_tree_parameter',
+          description: 'Set a parameter on an AnimationTree',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
+              parameterPath: { type: 'string', description: 'Parameter path (e.g., "parameters/idle/active")' },
+              value: { type: ['number', 'boolean', 'string'], description: 'Parameter value' },
+            },
+            required: ['projectPath', 'scenePath', 'animTreePath', 'parameterPath', 'value'],
+          },
+        },
+        // ==================== UI/THEME TOOLS ====================
+        {
+          name: 'create_theme',
+          description: 'Create a Theme resource',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              themePath: { type: 'string', description: 'Path to save the theme' },
+              baseThemePath: { type: 'string', description: 'Optional path to base theme to extend' },
+            },
+            required: ['projectPath', 'themePath'],
+          },
+        },
+        {
+          name: 'set_theme_color',
+          description: 'Set a color in a Theme resource',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              themePath: { type: 'string', description: 'Path to the theme resource' },
+              controlType: { type: 'string', description: 'Control type (Button, Label, etc.)' },
+              colorName: { type: 'string', description: 'Color name (font_color, etc.)' },
+              color: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' }, a: { type: 'number' } }, description: 'Color value' },
+            },
+            required: ['projectPath', 'themePath', 'controlType', 'colorName', 'color'],
+          },
+        },
+        {
+          name: 'set_theme_font_size',
+          description: 'Set a font size in a Theme resource',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              themePath: { type: 'string', description: 'Path to the theme resource' },
+              controlType: { type: 'string', description: 'Control type (Button, Label, etc.)' },
+              fontSizeName: { type: 'string', description: 'Font size name' },
+              size: { type: 'number', description: 'Font size in pixels' },
+            },
+            required: ['projectPath', 'themePath', 'controlType', 'fontSizeName', 'size'],
+          },
+        },
+        {
+          name: 'apply_theme_to_node',
+          description: 'Apply a Theme to a Control node in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              nodePath: { type: 'string', description: 'Path to the Control node' },
+              themePath: { type: 'string', description: 'Path to the Theme resource' },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'themePath'],
+          },
+        },
       ],
     }));
 
@@ -2451,6 +2874,67 @@ class GodotServer {
           return await this.handleCreateTileset(request.params.arguments);
         case 'set_tilemap_cells':
           return await this.handleSetTilemapCells(request.params.arguments);
+        // Audio System Tools handlers
+        case 'create_audio_bus':
+          return await this.handleCreateAudioBus(request.params.arguments);
+        case 'get_audio_buses':
+          return await this.handleGetAudioBuses(request.params.arguments);
+        case 'set_audio_bus_effect':
+          return await this.handleSetAudioBusEffect(request.params.arguments);
+        case 'set_audio_bus_volume':
+          return await this.handleSetAudioBusVolume(request.params.arguments);
+        case 'create_audio_stream_player':
+          return await this.handleCreateAudioStreamPlayer(request.params.arguments);
+        // Networking Tools handlers
+        case 'create_http_request':
+          return await this.handleCreateHttpRequest(request.params.arguments);
+        case 'create_multiplayer_spawner':
+          return await this.handleCreateMultiplayerSpawner(request.params.arguments);
+        case 'create_multiplayer_synchronizer':
+          return await this.handleCreateMultiplayerSynchronizer(request.params.arguments);
+        // Physics Tools handlers
+        case 'configure_physics_layer':
+          return await this.handleConfigurePhysicsLayer(request.params.arguments);
+        case 'create_physics_material':
+          return await this.handleCreatePhysicsMaterial(request.params.arguments);
+        case 'create_raycast':
+          return await this.handleCreateRaycast(request.params.arguments);
+        case 'set_collision_layer_mask':
+          return await this.handleSetCollisionLayerMask(request.params.arguments);
+        // Navigation Tools handlers
+        case 'create_navigation_region':
+          return await this.handleCreateNavigationRegion(request.params.arguments);
+        case 'create_navigation_agent':
+          return await this.handleCreateNavigationAgent(request.params.arguments);
+        case 'configure_navigation_layers':
+          return await this.handleConfigureNavigationLayers(request.params.arguments);
+        // Rendering Tools handlers
+        case 'create_environment':
+          return await this.handleCreateEnvironment(request.params.arguments);
+        case 'create_world_environment':
+          return await this.handleCreateWorldEnvironment(request.params.arguments);
+        case 'create_light':
+          return await this.handleCreateLight(request.params.arguments);
+        case 'create_camera':
+          return await this.handleCreateCamera(request.params.arguments);
+        // Animation Tree Tools handlers
+        case 'create_animation_tree':
+          return await this.handleCreateAnimationTree(request.params.arguments);
+        case 'add_animation_state':
+          return await this.handleAddAnimationState(request.params.arguments);
+        case 'connect_animation_states':
+          return await this.handleConnectAnimationStates(request.params.arguments);
+        case 'set_animation_tree_parameter':
+          return await this.handleSetAnimationTreeParameter(request.params.arguments);
+        // UI/Theme Tools handlers
+        case 'create_theme':
+          return await this.handleCreateTheme(request.params.arguments);
+        case 'set_theme_color':
+          return await this.handleSetThemeColor(request.params.arguments);
+        case 'set_theme_font_size':
+          return await this.handleSetThemeFontSize(request.params.arguments);
+        case 'apply_theme_to_node':
+          return await this.handleApplyThemeToNode(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -6561,6 +7045,634 @@ class GodotServer {
         `Failed to set tilemap cells: ${error?.message || 'Unknown error'}`,
         ['Ensure Godot is installed correctly', 'Verify the project path is accessible']
       );
+    }
+  }
+
+  // ============================================
+  // Audio System Handlers
+  // ============================================
+
+  private async handleCreateAudioBus(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.busName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and busName']);
+    }
+    try {
+      const params = {
+        busName: args.busName,
+        parentBusIndex: args.parentBusIndex || 0,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_audio_bus', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create audio bus: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Audio bus '${args.busName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create audio bus: ${error?.message}`, []);
+    }
+  }
+
+  private async handleGetAudioBuses(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath) {
+      return this.createErrorResponse('Project path is required', []);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('get_audio_buses', {}, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to get audio buses: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to get audio buses: ${error?.message}`, []);
+    }
+  }
+
+  private async handleSetAudioBusEffect(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || args.busIndex === undefined || args.effectIndex === undefined || !args.effectType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, busIndex, effectIndex, and effectType']);
+    }
+    try {
+      const params = {
+        busIndex: args.busIndex,
+        effectIndex: args.effectIndex,
+        effectType: args.effectType,
+        enabled: args.enabled !== false,
+      };
+      const { stdout, stderr } = await this.executeOperation('set_audio_bus_effect', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to set audio bus effect: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Audio bus effect set successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set audio bus effect: ${error?.message}`, []);
+    }
+  }
+
+  private async handleSetAudioBusVolume(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || args.busIndex === undefined || args.volumeDb === undefined) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, busIndex, and volumeDb']);
+    }
+    try {
+      const params = { busIndex: args.busIndex, volumeDb: args.volumeDb };
+      const { stdout, stderr } = await this.executeOperation('set_audio_bus_volume', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to set audio bus volume: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Audio bus volume set to ${args.volumeDb}dB.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set audio bus volume: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateAudioStreamPlayer(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        playerType: args.playerType || 'AudioStreamPlayer',
+        audioPath: args.audioPath || '',
+        bus: args.bus || 'Master',
+        autoplay: args.autoplay || false,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_audio_stream_player', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create audio stream player: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `AudioStreamPlayer '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create audio stream player: ${error?.message}`, []);
+    }
+  }
+
+  // ============================================
+  // Networking Handlers
+  // ============================================
+
+  private async handleCreateHttpRequest(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        timeout: args.timeout || 10,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_http_request', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create HTTPRequest: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `HTTPRequest '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create HTTPRequest: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateMultiplayerSpawner(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        spawnPath: args.spawnPath || '',
+        spawnableScenes: args.spawnableScenes || [],
+      };
+      const { stdout, stderr } = await this.executeOperation('create_multiplayer_spawner', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create MultiplayerSpawner: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `MultiplayerSpawner '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create MultiplayerSpawner: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateMultiplayerSynchronizer(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        rootPath: args.rootPath || '',
+        replicationInterval: args.replicationInterval || 0.0,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_multiplayer_synchronizer', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create MultiplayerSynchronizer: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `MultiplayerSynchronizer '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create MultiplayerSynchronizer: ${error?.message}`, []);
+    }
+  }
+
+  // ============================================
+  // Physics Handlers
+  // ============================================
+
+  private async handleConfigurePhysicsLayer(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.layerType || !args.layerIndex || !args.layerName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, layerType, layerIndex, and layerName']);
+    }
+    try {
+      const params = {
+        layerType: args.layerType,
+        layerIndex: args.layerIndex,
+        layerName: args.layerName,
+      };
+      const { stdout, stderr } = await this.executeOperation('configure_physics_layer', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to configure physics layer: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Physics layer ${args.layerIndex} named '${args.layerName}'.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure physics layer: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreatePhysicsMaterial(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.materialPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and materialPath']);
+    }
+    try {
+      const params = {
+        materialPath: args.materialPath,
+        friction: args.friction !== undefined ? args.friction : 1.0,
+        bounce: args.bounce !== undefined ? args.bounce : 0.0,
+        rough: args.rough || false,
+        absorbent: args.absorbent || false,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_physics_material', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create physics material: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `PhysicsMaterial created at '${args.materialPath}'.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create physics material: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateRaycast(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        is3D: args.is3D || false,
+        targetPosition: args.targetPosition || { x: 0, y: 100, z: 0 },
+        collisionMask: args.collisionMask || 1,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_raycast', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create raycast: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `RayCast '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create raycast: ${error?.message}`, []);
+    }
+  }
+
+  private async handleSetCollisionLayerMask(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, and nodePath']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        nodePath: args.nodePath,
+        collisionLayer: args.collisionLayer || 1,
+        collisionMask: args.collisionMask || 1,
+      };
+      const { stdout, stderr } = await this.executeOperation('set_collision_layer_mask', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to set collision layer/mask: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Collision layer/mask updated.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set collision layer/mask: ${error?.message}`, []);
+    }
+  }
+
+  // ============================================
+  // Navigation Handlers
+  // ============================================
+
+  private async handleCreateNavigationRegion(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        is3D: args.is3D || false,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_navigation_region', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create navigation region: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `NavigationRegion '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create navigation region: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateNavigationAgent(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        is3D: args.is3D || false,
+        pathDesiredDistance: args.pathDesiredDistance || 4.0,
+        targetDesiredDistance: args.targetDesiredDistance || 4.0,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_navigation_agent', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create navigation agent: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `NavigationAgent '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create navigation agent: ${error?.message}`, []);
+    }
+  }
+
+  private async handleConfigureNavigationLayers(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.layerIndex || !args.layerName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, layerIndex, and layerName']);
+    }
+    try {
+      const params = {
+        is3D: args.is3D || false,
+        layerIndex: args.layerIndex,
+        layerName: args.layerName,
+      };
+      const { stdout, stderr } = await this.executeOperation('configure_navigation_layers', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to configure navigation layers: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Navigation layer ${args.layerIndex} named '${args.layerName}'.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure navigation layers: ${error?.message}`, []);
+    }
+  }
+
+  // ============================================
+  // Rendering Handlers
+  // ============================================
+
+  private async handleCreateEnvironment(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.resourcePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and resourcePath']);
+    }
+    try {
+      const params = {
+        resourcePath: args.resourcePath,
+        backgroundMode: args.backgroundMode || 'sky',
+        backgroundColor: args.backgroundColor || { r: 0.3, g: 0.3, b: 0.3 },
+        ambientLightColor: args.ambientLightColor || { r: 1.0, g: 1.0, b: 1.0 },
+        ambientLightEnergy: args.ambientLightEnergy || 1.0,
+        tonemapMode: args.tonemapMode || 'linear',
+        glowEnabled: args.glowEnabled || false,
+        fogEnabled: args.fogEnabled || false,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_environment', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create environment: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Environment created at '${args.resourcePath}'.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create environment: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateWorldEnvironment(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        environmentPath: args.environmentPath || '',
+      };
+      const { stdout, stderr } = await this.executeOperation('create_world_environment', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create WorldEnvironment: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `WorldEnvironment '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create WorldEnvironment: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateLight(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName || !args.lightType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, nodeName, and lightType']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        lightType: args.lightType,
+        color: args.color || { r: 1.0, g: 1.0, b: 1.0 },
+        energy: args.energy || 1.0,
+        shadowEnabled: args.shadowEnabled || false,
+      };
+      const { stdout, stderr } = await this.executeOperation('create_light', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create light: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `${args.lightType} '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create light: ${error?.message}`, []);
+    }
+  }
+
+  private async handleCreateCamera(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        is3D: args.is3D || false,
+        current: args.current || false,
+        fov: args.fov || 75,
+        zoom: args.zoom || { x: 1, y: 1 },
+      };
+      const { stdout, stderr } = await this.executeOperation('create_camera', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create camera: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Camera '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create camera: ${error?.message}`, []);
+    }
+  }
+
+  // ============================================
+  // Animation Tree Handlers
+  // ============================================
+
+  private async handleCreateAnimationTree(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName || !args.animPlayerPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, nodeName, and animPlayerPath']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentPath: args.parentPath,
+        nodeName: args.nodeName,
+        animPlayerPath: args.animPlayerPath,
+        rootType: args.rootType || 'StateMachine',
+      };
+      const { stdout, stderr } = await this.executeOperation('create_animation_tree', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create AnimationTree: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `AnimationTree '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create AnimationTree: ${error?.message}`, []);
+    }
+  }
+
+  private async handleAddAnimationState(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.animTreePath || !args.stateName || !args.animationName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animTreePath, stateName, and animationName']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        animTreePath: args.animTreePath,
+        stateName: args.stateName,
+        animationName: args.animationName,
+        stateMachinePath: args.stateMachinePath || '',
+      };
+      const { stdout, stderr } = await this.executeOperation('add_animation_state', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to add animation state: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Animation state '${args.stateName}' added successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to add animation state: ${error?.message}`, []);
+    }
+  }
+
+  private async handleConnectAnimationStates(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.animTreePath || !args.fromState || !args.toState) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animTreePath, fromState, and toState']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        animTreePath: args.animTreePath,
+        fromState: args.fromState,
+        toState: args.toState,
+        transitionType: args.transitionType || 'immediate',
+        advanceCondition: args.advanceCondition || '',
+      };
+      const { stdout, stderr } = await this.executeOperation('connect_animation_states', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to connect animation states: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `States '${args.fromState}' -> '${args.toState}' connected.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to connect animation states: ${error?.message}`, []);
+    }
+  }
+
+  private async handleSetAnimationTreeParameter(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.animTreePath || !args.parameterPath || args.value === undefined) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animTreePath, parameterPath, and value']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        animTreePath: args.animTreePath,
+        parameterPath: args.parameterPath,
+        value: args.value,
+      };
+      const { stdout, stderr } = await this.executeOperation('set_animation_tree_parameter', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to set animation tree parameter: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Parameter '${args.parameterPath}' set to ${args.value}.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set animation tree parameter: ${error?.message}`, []);
+    }
+  }
+
+  // ============================================
+  // UI/Theme Handlers
+  // ============================================
+
+  private async handleCreateTheme(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.themePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and themePath']);
+    }
+    try {
+      const params = {
+        themePath: args.themePath,
+        baseThemePath: args.baseThemePath || '',
+      };
+      const { stdout, stderr } = await this.executeOperation('create_theme', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to create theme: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Theme created at '${args.themePath}'.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create theme: ${error?.message}`, []);
+    }
+  }
+
+  private async handleSetThemeColor(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.themePath || !args.controlType || !args.colorName || !args.color) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, themePath, controlType, colorName, and color']);
+    }
+    try {
+      const params = {
+        themePath: args.themePath,
+        controlType: args.controlType,
+        colorName: args.colorName,
+        color: args.color,
+      };
+      const { stdout, stderr } = await this.executeOperation('set_theme_color', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to set theme color: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Theme color '${args.colorName}' for '${args.controlType}' set.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set theme color: ${error?.message}`, []);
+    }
+  }
+
+  private async handleSetThemeFontSize(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.themePath || !args.controlType || !args.fontSizeName || !args.size) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, themePath, controlType, fontSizeName, and size']);
+    }
+    try {
+      const params = {
+        themePath: args.themePath,
+        controlType: args.controlType,
+        fontSizeName: args.fontSizeName,
+        size: args.size,
+      };
+      const { stdout, stderr } = await this.executeOperation('set_theme_font_size', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to set theme font size: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Theme font size '${args.fontSizeName}' for '${args.controlType}' set to ${args.size}px.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set theme font size: ${error?.message}`, []);
+    }
+  }
+
+  private async handleApplyThemeToNode(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath || !args.themePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, nodePath, and themePath']);
+    }
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        nodePath: args.nodePath,
+        themePath: args.themePath,
+      };
+      const { stdout, stderr } = await this.executeOperation('apply_theme_to_node', params, args.projectPath);
+      if (stderr && stderr.includes('ERROR')) {
+        return this.createErrorResponse(`Failed to apply theme to node: ${stderr}`, []);
+      }
+      return { content: [{ type: 'text', text: `Theme applied to '${args.nodePath}'.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to apply theme to node: ${error?.message}`, []);
     }
   }
 }
