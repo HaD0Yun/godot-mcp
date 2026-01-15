@@ -93,6 +93,9 @@ class GodotServer {
     'particle_type': 'particleType',
     'one_shot': 'oneShot',
     'material_path': 'materialPath',
+    'region_path': 'regionPath',
+    'agent_type': 'agentType',
+    'link_type': 'linkType',
   };
 
 
@@ -1377,6 +1380,69 @@ class GodotServer {
             required: ['projectPath', 'materialPath'],
           },
         },
+        {
+          name: 'create_navigation_region',
+          description: 'Create a NavigationRegion2D or NavigationRegion3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node' },
+              nodeName: { type: 'string', description: 'Name for the navigation region node' },
+              is3d: { type: 'boolean', description: 'Whether to create a 3D navigation region (default: true)' },
+              properties: { type: 'object', description: 'Optional properties to set' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
+        {
+          name: 'create_navigation_agent',
+          description: 'Create a NavigationAgent2D or NavigationAgent3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node' },
+              nodeName: { type: 'string', description: 'Name for the navigation agent node' },
+              is3d: { type: 'boolean', description: 'Whether to create a 3D navigation agent (default: true)' },
+              properties: { type: 'object', description: 'Optional properties to set' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
+        {
+          name: 'configure_navigation_mesh',
+          description: 'Configure and optionally bake a navigation mesh for a region',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              nodePath: { type: 'string', description: 'Path to the NavigationRegion node' },
+              bake: { type: 'boolean', description: 'Whether to bake the navigation mesh after configuration (default: true)' },
+              properties: { type: 'object', description: 'Optional properties to set on the region or its navigation mesh' },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath'],
+          },
+        },
+        {
+          name: 'create_navigation_link',
+          description: 'Create a NavigationLink2D or NavigationLink3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node' },
+              nodeName: { type: 'string', description: 'Name for the navigation link node' },
+              is3d: { type: 'boolean', description: 'Whether to create a 3D navigation link (default: true)' },
+              properties: { type: 'object', description: 'Optional properties to set' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
       ],
     }));
     
@@ -1446,6 +1512,14 @@ class GodotServer {
           return await this.handleConfigureParticleMaterial(request.params.arguments);
         case 'create_particle_material':
           return await this.handleCreateParticleMaterial(request.params.arguments);
+        case 'create_navigation_region':
+          return await this.handleCreateNavigationRegion(request.params.arguments);
+        case 'create_navigation_agent':
+          return await this.handleCreateNavigationAgent(request.params.arguments);
+        case 'configure_navigation_mesh':
+          return await this.handleConfigureNavigationMesh(request.params.arguments);
+        case 'create_navigation_link':
+          return await this.handleCreateNavigationLink(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -3312,6 +3386,138 @@ class GodotServer {
       return { content: [{ type: 'text', text: stdout.trim() }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to create particle material: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_navigation_region tool
+   */
+  private async handleCreateNavigationRegion(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    const is3d = args.is3d !== false;
+    const nodeType = is3d ? 'NavigationRegion3D' : 'NavigationRegion2D';
+    
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentNodePath: args.parentNodePath,
+        nodeType: nodeType,
+        nodeName: args.nodeName,
+        properties: args.properties || {}
+      };
+      const { stdout, stderr } = await this.executeOperation('add_node', params, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create navigation region: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: `Navigation region created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create navigation region: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_navigation_agent tool
+   */
+  private async handleCreateNavigationAgent(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    const is3d = args.is3d !== false;
+    const nodeType = is3d ? 'NavigationAgent3D' : 'NavigationAgent2D';
+    
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentNodePath: args.parentNodePath,
+        nodeType: nodeType,
+        nodeName: args.nodeName,
+        properties: args.properties || {}
+      };
+      const { stdout, stderr } = await this.executeOperation('add_node', params, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create navigation agent: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: `Navigation agent created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create navigation agent: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_navigation_mesh tool
+   */
+  private async handleConfigureNavigationMesh(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, and nodePath']);
+    }
+    
+    try {
+      let resultText = '';
+      
+      // First set properties if any
+      if (args.properties && Object.keys(args.properties).length > 0) {
+        const { stdout, stderr } = await this.executeOperation('set_node_properties', {
+          scenePath: args.scenePath,
+          nodePath: args.nodePath,
+          properties: args.properties
+        }, args.projectPath);
+        
+        if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+          return this.createErrorResponse(`Failed to configure navigation mesh properties: ${stderr}`);
+        }
+        resultText += `Properties configured.\n${stdout.trim()}\n`;
+      }
+      
+      // Then bake if requested (default true)
+      if (args.bake !== false) {
+        const { stdout, stderr } = await this.executeOperation('bake_navigation_mesh', {
+          scenePath: args.scenePath,
+          nodePath: args.nodePath
+        }, args.projectPath);
+        
+        if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+          return this.createErrorResponse(`Failed to bake navigation mesh: ${stderr}`);
+        }
+        resultText += `Navigation mesh baked.\n${stdout.trim()}`;
+      }
+      
+      return { content: [{ type: 'text', text: resultText || 'No action taken.' }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure/bake navigation mesh: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_navigation_link tool
+   */
+  private async handleCreateNavigationLink(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    const is3d = args.is3d !== false;
+    const nodeType = is3d ? 'NavigationLink3D' : 'NavigationLink2D';
+    
+    try {
+      const params = {
+        scenePath: args.scenePath,
+        parentNodePath: args.parentNodePath,
+        nodeType: nodeType,
+        nodeName: args.nodeName,
+        properties: args.properties || {}
+      };
+      const { stdout, stderr } = await this.executeOperation('add_node', params, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create navigation link: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: `Navigation link created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create navigation link: ${error?.message || 'Unknown error'}`);
     }
   }
 

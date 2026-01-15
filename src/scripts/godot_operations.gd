@@ -91,6 +91,8 @@ func _init():
                 configure_particle_material(params)
             "create_particle_material":
                 create_particle_material(params)
+            "bake_navigation_mesh":
+                bake_navigation_mesh(params)
             _:
                 log_error("Unknown operation: " + operation)
                 quit(1)
@@ -2045,4 +2047,53 @@ func get_audio_bus_layout() -> Dictionary:
             })
         result.buses.append(bus)
     return result
+
+# --- Navigation Tools ---
+
+# Bake navigation mesh for a NavigationRegion2D/3D node
+func bake_navigation_mesh(params):
+    print("Baking navigation mesh for node: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    var node_path = params.node_path
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+    
+    var region = scene_root.get_node_or_null(node_path)
+    if not region:
+        printerr("Region node not found: " + params.node_path)
+        quit(1)
+        
+    if region.has_method("bake_navigation_mesh"):
+        region.bake_navigation_mesh()
+        print("Navigation mesh baked successfully")
+    else:
+        printerr("Node does not have bake_navigation_mesh method: " + region.get_class())
+        quit(1)
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Scene saved successfully with baked navigation mesh")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
 
