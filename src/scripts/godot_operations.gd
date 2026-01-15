@@ -139,6 +139,14 @@ func _init():
                 set_gridmap_cells(params)
             "configure_gridmap":
                 configure_gridmap(params)
+            "validate_scene":
+                validate_scene(params)
+            "validate_script":
+                validate_script(params)
+            "create_character_controller":
+                create_character_controller(params)
+            "create_scene":
+                create_scene(params)
             _:
                 log_error("Unknown operation: " + operation)
                 quit(1)
@@ -3094,4 +3102,167 @@ func configure_control_anchors(params):
     else:
         printerr("Failed to pack scene")
 
+# --- Validation and Workflow Tools ---
+
+# Validate a scene file
+func validate_scene(params):
+	var scene_path = params.scene_path
+	if not scene_path.begins_with("res://"):
+		scene_path = "res://" + scene_path
+	
+	log_info("Validating scene: " + scene_path)
+	
+	if not FileAccess.file_exists(scene_path):
+		printerr("Scene file does not exist: " + scene_path)
+		quit(1)
+		
+	var scene = load(scene_path)
+	if not scene:
+		printerr("Failed to load scene (might have broken dependencies): " + scene_path)
+		quit(1)
+		
+	var instance = scene.instantiate()
+	if not instance:
+		printerr("Failed to instantiate scene: " + scene_path)
+		quit(1)
+		
+	instance.free()
+	print("Scene is valid")
+
+# Validate a GDScript file
+func validate_script(params):
+	var script_path = params.script_path
+	if not script_path.begins_with("res://"):
+		script_path = "res://" + script_path
+		
+	log_info("Validating script: " + script_path)
+	
+	if not FileAccess.file_exists(script_path):
+		printerr("Script file does not exist: " + script_path)
+		quit(1)
+		
+	var script = load(script_path)
+	if not script:
+		printerr("Failed to load script: " + script_path)
+		quit(1)
+		
+	if not (script is GDScript):
+		printerr("Resource is not a GDScript: " + script_path)
+		quit(1)
+		
+	# In Godot 4, reload() returns OK if there are no errors
+	if script.reload() != OK:
+		printerr("Script has syntax errors: " + script_path)
+		quit(1)
+		
+	print("Script is valid")
+
+# Create a character controller (2D or 3D)
+func create_character_controller(params):
+	var is_3d = params.get("is_3d", true)
+	var node_name = params.get("node_name", "Player")
+	var scene_path = params.scene_path
+	
+	log_info("Creating character controller: " + node_name + " (3D: " + str(is_3d) + ")")
+	
+	if not scene_path.begins_with("res://"):
+		scene_path = "res://" + scene_path
+		
+	var absolute_scene_path = ProjectSettings.globalize_path(scene_path)
+	
+	# Create directory if it doesn't exist
+	var scene_dir = scene_path.get_base_dir()
+	if scene_dir != "res://" and not DirAccess.dir_exists_absolute(scene_dir):
+		DirAccess.make_dir_recursive_absolute(scene_dir)
+	
+	var scene_root
+	if FileAccess.file_exists(absolute_scene_path):
+		var scene = load(scene_path)
+		scene_root = scene.instantiate()
+	else:
+		# Create a new scene if it doesn't exist
+		if is_3d:
+			scene_root = Node3D.new()
+		else:
+			scene_root = Node2D.new()
+		scene_root.name = "World"
+		
+	var character
+	if is_3d:
+		character = CharacterBody3D.new()
+	else:
+		character = CharacterBody2D.new()
+	
+	character.name = node_name
+	scene_root.add_child(character)
+	character.owner = scene_root
+	
+	# Add CollisionShape
+	var collision
+	if is_3d:
+		collision = CollisionShape3D.new()
+		var shape = CapsuleShape3D.new()
+		collision.shape = shape
+	else:
+		collision = CollisionShape2D.new()
+		var shape = CapsuleShape2D.new()
+		collision.shape = shape
+	
+	collision.name = "CollisionShape"
+	character.add_child(collision)
+	collision.owner = scene_root
+	
+	# Add Mesh or Sprite
+	if is_3d:
+		var mesh_instance = MeshInstance3D.new()
+		var mesh = CapsuleMesh.new()
+		mesh_instance.mesh = mesh
+		mesh_instance.name = "MeshInstance"
+		character.add_child(mesh_instance)
+		mesh_instance.owner = scene_root
+	else:
+		var sprite = Sprite2D.new()
+		sprite.name = "Sprite"
+		character.add_child(sprite)
+		sprite.owner = scene_root
+		
+	# Save the scene
+	var packed_scene = PackedScene.new()
+	if packed_scene.pack(scene_root) == OK:
+		if ResourceSaver.save(packed_scene, absolute_scene_path) == OK:
+			print("Character controller created successfully")
+		else:
+			printerr("Failed to save scene")
+			quit(1)
+	else:
+		printerr("Failed to pack scene")
+		quit(1)
+
+# Create a new Godot scene file
+func create_scene(params):
+	print("Creating scene: " + params.scene_path + " with root type: " + params.root_node_type)
+	var full_scene_path = params.scene_path
+	if not full_scene_path.begins_with("res://"):
+		full_scene_path = "res://" + full_scene_path
+	
+	var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+	
+	# Create directory if it doesn't exist
+	var scene_dir = full_scene_path.get_base_dir()
+	if scene_dir != "res://" and not DirAccess.dir_exists_absolute(scene_dir):
+		DirAccess.make_dir_recursive_absolute(scene_dir)
+
+	var root = instantiate_class(params.root_node_type)
+	if not root:
+		root = Node2D.new() # Default
+	
+	root.name = "Root"
+	var packed_scene = PackedScene.new()
+	var result = packed_scene.pack(root)
+	if result == OK:
+		ResourceSaver.save(packed_scene, absolute_scene_path)
+		print("Scene created successfully")
+	else:
+		printerr("Failed to pack scene")
+		quit(1)
 

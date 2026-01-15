@@ -79,6 +79,7 @@ class GodotServer {
     'mesh_item_names': 'meshItemNames',
     'new_path': 'newPath',
     'file_path': 'filePath',
+    'script_path': 'scriptPath',
     'light_type': 'lightType',
     'properties': 'properties',
     'shadow_enabled': 'shadowEnabled',
@@ -1926,6 +1927,44 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'nodePath'],
           },
         },
+        {
+          name: 'validate_scene',
+          description: 'Validate a Godot scene file for errors and broken dependencies',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+            },
+            required: ['projectPath', 'scenePath'],
+          },
+        },
+        {
+          name: 'validate_script',
+          description: 'Validate a GDScript file for syntax errors',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scriptPath: { type: 'string', description: 'Path to the script file (relative to project)' },
+            },
+            required: ['projectPath', 'scriptPath'],
+          },
+        },
+        {
+          name: 'create_character_controller',
+          description: 'Create a complete character controller setup (2D or 3D)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              nodeName: { type: 'string', description: 'Name for the character node', default: 'Player' },
+              is3d: { type: 'boolean', description: 'Whether to create a 3D character (default: true)', default: true },
+            },
+            required: ['projectPath', 'scenePath'],
+          },
+        },
       ],
     }));
     
@@ -2049,6 +2088,12 @@ class GodotServer {
           return await this.handleSetGridMapCells(request.params.arguments);
         case 'configure_gridmap':
           return await this.handleConfigureGridMap(request.params.arguments);
+        case 'validate_scene':
+          return await this.handleValidateScene(request.params.arguments);
+        case 'validate_script':
+          return await this.handleValidateScript(request.params.arguments);
+        case 'create_character_controller':
+          return await this.handleCreateCharacterController(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -4485,6 +4530,63 @@ class GodotServer {
       return { content: [{ type: 'text', text: stdout.trim() }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to configure GridMap: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle validate_scene tool
+   */
+  private async handleValidateScene(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and scenePath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('validate_scene', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Scene validation failed: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Scene validation failed: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle validate_script tool
+   */
+  private async handleValidateScript(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scriptPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and scriptPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('validate_script', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Script validation failed: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Script validation failed: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_character_controller tool
+   */
+  private async handleCreateCharacterController(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and scenePath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_character_controller', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create character controller: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create character controller: ${error?.message || 'Unknown error'}`);
     }
   }
 
