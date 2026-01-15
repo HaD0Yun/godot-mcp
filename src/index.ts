@@ -96,6 +96,17 @@ class GodotServer {
     'region_path': 'regionPath',
     'agent_type': 'agentType',
     'link_type': 'linkType',
+    'peer_type': 'peerType',
+    'max_clients': 'maxClients',
+    'transfer_mode': 'transferMode',
+    'spawn_path': 'spawnPath',
+    'auto_spawn_list': 'autoSpawnList',
+    'root_path': 'rootPath',
+    'replication_interval': 'replicationInterval',
+    'method_name': 'methodName',
+    'rpc_mode': 'rpcMode',
+    'call_local': 'callLocal',
+    'channel': 'channel',
   };
 
 
@@ -1443,6 +1454,106 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
           },
         },
+        {
+          name: 'configure_multiplayer',
+          description: 'Configure multiplayer settings in project',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              peerType: { 
+                type: 'string', 
+                enum: ['ENetMultiplayerPeer', 'WebSocketMultiplayerPeer', 'WebRTCMultiplayerPeer'],
+                description: 'Type of multiplayer peer'
+              },
+              maxClients: { type: 'number', description: 'Maximum number of clients' },
+              transferMode: { 
+                type: 'string', 
+                enum: ['reliable', 'unreliable', 'ordered'],
+                description: 'Default transfer mode'
+              },
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'create_multiplayer_spawner',
+          description: 'Create a MultiplayerSpawner node in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node' },
+              nodeName: { type: 'string', description: 'Name for the spawner node' },
+              spawnPath: { type: 'string', description: 'Path to the node where entities will be spawned' },
+              autoSpawnList: { 
+                type: 'array', 
+                items: { type: 'string' },
+                description: 'List of scene paths that can be auto-spawned'
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
+        {
+          name: 'create_multiplayer_synchronizer',
+          description: 'Create a MultiplayerSynchronizer node in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node' },
+              nodeName: { type: 'string', description: 'Name for the synchronizer node' },
+              rootPath: { type: 'string', description: 'Path to the node to synchronize' },
+              replicationInterval: { type: 'number', description: 'Replication interval in seconds' },
+              properties: { 
+                type: 'array', 
+                items: { type: 'string' },
+                description: 'List of property paths to synchronize'
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
+        {
+          name: 'add_rpc_config',
+          description: 'Add RPC configuration to a node/script',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              nodePath: { type: 'string', description: 'Path to the node' },
+              methodName: { type: 'string', description: 'Name of the method to configure RPC for' },
+              rpcMode: { 
+                type: 'string', 
+                enum: ['disabled', 'any_peer', 'authority'],
+                description: 'RPC mode'
+              },
+              transferMode: { 
+                type: 'string', 
+                enum: ['reliable', 'unreliable', 'ordered'],
+                description: 'Transfer mode'
+              },
+              callLocal: { type: 'boolean', description: 'Whether to call the method locally as well' },
+              channel: { type: 'number', description: 'Transfer channel' },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'methodName'],
+          },
+        },
+        {
+          name: 'get_multiplayer_info',
+          description: 'Get multiplayer information for a project',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+            },
+            required: ['projectPath'],
+          },
+        },
       ],
     }));
     
@@ -1520,6 +1631,16 @@ class GodotServer {
           return await this.handleConfigureNavigationMesh(request.params.arguments);
         case 'create_navigation_link':
           return await this.handleCreateNavigationLink(request.params.arguments);
+        case 'configure_multiplayer':
+          return await this.handleConfigureMultiplayer(request.params.arguments);
+        case 'create_multiplayer_spawner':
+          return await this.handleCreateMultiplayerSpawner(request.params.arguments);
+        case 'create_multiplayer_synchronizer':
+          return await this.handleCreateMultiplayerSynchronizer(request.params.arguments);
+        case 'add_rpc_config':
+          return await this.handleAddRpcConfig(request.params.arguments);
+        case 'get_multiplayer_info':
+          return await this.handleGetMultiplayerInfo(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -2753,7 +2874,7 @@ class GodotServer {
       }
 
       // Count available tools
-      const toolCount = 25; // 19 tools + 6 audio tools
+      const toolCount = 42; // 14 core + 16 Phase 1 + 12 Phase 2
 
       // Check for detected issues
       const detectedIssues: string[] = [];
@@ -2793,8 +2914,9 @@ class GodotServer {
         version: serverVersion,
         godot_path: this.godotPath,
         godot_version: godotVersion,
-        tool_count: toolCount, // 14 core tools + info diagnostic
+        tool_count: toolCount,
         detected_issues: detectedIssues,
+
         platform: process.platform,
         node_version: process.version,
         debug_mode: DEBUG_MODE,
@@ -3518,6 +3640,101 @@ class GodotServer {
       return { content: [{ type: 'text', text: `Navigation link created successfully.\n\n${stdout.trim()}` }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to create navigation link: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_multiplayer tool
+   */
+  private async handleConfigureMultiplayer(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_multiplayer', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure multiplayer: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: `Multiplayer configured successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure multiplayer: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_multiplayer_spawner tool
+   */
+  private async handleCreateMultiplayerSpawner(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_multiplayer_spawner', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create multiplayer spawner: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: `Multiplayer spawner created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create multiplayer spawner: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_multiplayer_synchronizer tool
+   */
+  private async handleCreateMultiplayerSynchronizer(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_multiplayer_synchronizer', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create multiplayer synchronizer: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: `Multiplayer synchronizer created successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create multiplayer synchronizer: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle add_rpc_config tool
+   */
+  private async handleAddRpcConfig(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath || !args.methodName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, nodePath, and methodName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('add_rpc_config', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to add RPC config: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: `RPC config added successfully.\n\n${stdout.trim()}` }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to add RPC config: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle get_multiplayer_info tool
+   */
+  private async handleGetMultiplayerInfo(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('get_multiplayer_info', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to get multiplayer info: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to get multiplayer info: ${error?.message || 'Unknown error'}`);
     }
   }
 
