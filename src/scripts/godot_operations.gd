@@ -51,6 +51,8 @@ func _init():
                 configure_camera3d(params)
             "set_camera_environment":
                 set_camera_environment(params)
+            "create_camera3d":
+                create_camera3d(params)
             "add_node":
                 add_node(params)
             "load_sprite":
@@ -313,6 +315,62 @@ func get_multiplayer_info(params):
     }
     print(JSON.stringify(info))
 
+
+# Create a Camera3D node
+func create_camera3d(params):
+    print("Creating Camera3D: " + params.node_name + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    var camera = Camera3D.new()
+    camera.name = params.node_name
+    
+    if params.has("properties"):
+        for prop in params.properties:
+            smart_set(camera, prop, params.properties[prop])
+    
+    parent.add_child(camera)
+    camera.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Camera3D created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
 
 # Configure properties on Camera3D node
 func configure_camera3d(params):

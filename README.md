@@ -57,28 +57,46 @@ A Model Context Protocol (MCP) server for interacting with the Godot game engine
 
 ## Introduction
 
-Godot MCP enables AI assistants to launch the Godot editor, run projects, capture debug output, and control project execution - all through a standardized interface.
+Godot MCP enables AI assistants to launch the Godot editor, run projects, and manage complex systems like 3D lighting, audio, physics, particles, and multiplayer - with 64 specialized tools covering 60%+ of the Godot 4.x API.
 
 This direct feedback loop helps AI assistants like Claude understand what works and what doesn't in real Godot projects, leading to better code generation and debugging assistance.
 
 ## Features
 
-- **Launch Godot Editor**: Open the Godot editor for a specific project
-- **Run Godot Projects**: Execute Godot projects in debug mode
-- **Capture Debug Output**: Retrieve console output and error messages
-- **Control Execution**: Start and stop Godot projects programmatically
-- **Get Godot Version**: Retrieve the installed Godot version
-- **List Godot Projects**: Find Godot projects in a specified directory
-- **Project Analysis**: Get detailed information about project structure
-- **Scene Management**:
-  - Create new scenes with specified root node types
-  - Add nodes to existing scenes with customizable properties
-  - Load sprites and textures into Sprite2D nodes
-  - Export 3D scenes as MeshLibrary resources for GridMap
-  - Save scenes with options for creating variants
+- **Launch & Control**: Start/stop the Godot editor and projects programmatically
+- **Project Analysis**: List projects and get detailed structural information
+- **Scene & Node Management**:
+  - Create scenes with any root node type
+  - Add, modify, and manage nodes with full property control
+  - High-level workflow tools like `create_character_controller`
+- **3D Graphics & Environment**:
+  - Full lighting support (Omni, Spot, Directional)
+  - Camera3D configuration and environment linking
+  - WorldEnvironment, Sky materials, and post-processing
+  - Baked lighting with LightmapGI
+- **Audio System**:
+  - 2D/3D audio player management
+  - Multi-bus setup with routing and effects (Reverb, EQ, etc.)
+  - Bus layout persistence
+- **Physics & Navigation**:
+  - Physics joints (Pin, Hinge, Slider, etc.)
+  - Collision shapes, Areas, and Raycasts
+  - Navigation regions, agents, and mesh baking
+- **Animation & UI**:
+  - AnimationTree (State Machine, Blend Tree) configuration
+  - UI Theme and StyleBox creation
+  - Control layout with anchor presets
+- **World Building**:
+  - 3D GridMap (Tile) management
+  - 2D TileSet and TileMap support
+- **Multiplayer & Networking**:
+  - MultiplayerSpawner and Synchronizer setup
+  - RPC configuration and network peer settings
+- **Diagnostics & Quality**:
+  - Scene and Script validation tools
+  - System diagnostics via the `info` tool
 - **UID Management** (for Godot 4.4+):
-  - Get UID for specific files
-  - Update UID references by resaving resources
+  - Resource UID retrieval and project-wide updates
 
 ## Requirements
 
@@ -116,20 +134,16 @@ Add to your Cline MCP settings file (`~/Library/Application Support/Code/User/gl
       },
       "disabled": false,
       "autoApprove": [
-        "launch_editor",
-        "run_project",
-        "get_debug_output",
-        "stop_project",
-        "get_godot_version",
-        "list_projects",
-        "get_project_info",
-        "create_scene",
-        "add_node",
-        "load_sprite",
-        "export_mesh_library",
-        "save_scene",
-        "get_uid",
-        "update_project_uids"
+        "launch_editor", "run_project", "get_debug_output", "stop_project",
+        "get_godot_version", "list_projects", "get_project_info", "info",
+        "create_scene", "add_node", "save_scene", "load_sprite",
+        "create_light", "configure_light", "create_camera3d", "configure_camera3d",
+        "create_audio_player", "configure_audio_bus", "add_audio_effect",
+        "create_particle_system", "create_navigation_region", "create_physics_joint",
+        "create_collision_shape", "create_area", "create_animation_tree",
+        "create_theme", "create_gridmap", "configure_multiplayer",
+        "validate_scene", "validate_script", "create_character_controller",
+        "get_uid", "update_project_uids"
       ]
     }
   }
@@ -183,25 +197,25 @@ Once configured, your AI assistant will automatically run the MCP server when ne
 
 "Run my Godot project and show me any errors"
 
-"Get information about my Godot project structure"
+"Get information about my Godot project structure and server status"
 
-"Analyze my Godot project structure and suggest improvements"
+"Create a 3D character controller with a camera and basic movement script"
 
-"Help me debug this error in my Godot project: [paste error]"
+"Add an OmniLight3D to my scene, set it to a warm orange color, and enable shadows"
 
-"Write a GDScript for a character controller with double jump and wall sliding"
+"Create a Reverb audio bus and route my SFX bus to it"
 
-"Create a new scene with a Player node in my Godot project"
+"Set up a GPUParticles3D system for a fire effect with 50 particles"
 
-"Add a Sprite2D node to my player scene and load the character texture"
+"Configure an AnimationTree state machine for my character's walk/run/idle states"
 
-"Export my 3D models as a MeshLibrary for use with GridMap"
+"Bake the navigation mesh for my level so enemies can follow me"
 
-"Create a UI scene with buttons and labels for my game's main menu"
+"Validate my main scene to find any broken resource paths or missing dependencies"
+
+"Export my 3D models as a MeshLibrary and set up a GridMap for level building"
 
 "Get the UID for a specific script file in my Godot 4.4 project"
-
-"Update UID references in my Godot project after upgrading to 4.4"
 ```
 
 ## Implementation Details
@@ -225,6 +239,7 @@ The bundled script accepts operation type and parameters as JSON, allowing for f
 
 ## Troubleshooting
 
+- **Server Diagnostics**: Use the `info` tool to check connection status, Godot version, and detected issues.
 - **Godot Not Found**: Set the GODOT_PATH environment variable to your Godot executable
 - **Connection Issues**: Ensure the server is running and restart your AI assistant
 - **Invalid Project Path**: Ensure the path points to a directory containing a project.godot file

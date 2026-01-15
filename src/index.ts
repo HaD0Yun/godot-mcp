@@ -1110,7 +1110,56 @@ class GodotServer {
                 description: 'Additional shadow properties: shadow_bias, shadow_normal_bias, shadow_transmittance, etc.',
               },
             },
-              required: ['projectPath', 'scenePath', 'nodePath', 'shadowEnabled'],
+          required: ['projectPath', 'scenePath', 'nodePath', 'shadowEnabled'],
+          },
+        },
+        {
+          name: 'create_camera3d',
+          description: 'Create a Camera3D node with configuration',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              parentNodePath: { type: 'string' },
+              nodeName: { type: 'string' },
+              properties: {
+                type: 'object',
+                description: 'Camera properties: fov, near, far, current, projection, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
+        {
+          name: 'configure_camera3d',
+          description: 'Configure properties of an existing Camera3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              nodePath: { type: 'string', description: 'Path to the Camera3D node' },
+              properties: {
+                type: 'object',
+                description: 'Camera properties: fov, near, far, current, projection, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'properties'],
+          },
+        },
+        {
+          name: 'set_camera_environment',
+          description: 'Set a WorldEnvironment resource on a Camera3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              cameraNodePath: { type: 'string', description: 'Path to the Camera3D node' },
+              environmentPath: { type: 'string', description: 'Path to the Environment resource (.tres)' },
+            },
+            required: ['projectPath', 'scenePath', 'cameraNodePath', 'environmentPath'],
           },
         },
         {
@@ -2010,6 +2059,12 @@ class GodotServer {
           return await this.handleCreateLightmapGi(request.params.arguments);
         case 'configure_shadow':
           return await this.handleConfigureShadow(request.params.arguments);
+        case 'create_camera3d':
+          return await this.handleCreateCamera3D(request.params.arguments);
+        case 'configure_camera3d':
+          return await this.handleConfigureCamera3D(request.params.arguments);
+        case 'set_camera_environment':
+          return await this.handleSetCameraEnvironment(request.params.arguments);
         case 'create_world_environment':
           return await this.handleCreateWorldEnvironment(request.params.arguments);
         case 'configure_environment':
@@ -2670,13 +2725,13 @@ class GodotServer {
         content: [
           {
             type: 'text',
-            text: `Scene created successfully at: ${args.scenePath}\n\nOutput: ${stdout}`,
+            text: `Shadow configured successfully for node: ${args.nodePath}\n\nOutput: ${stdout}`,
           },
         ],
       };
     } catch (error: any) {
       return this.createErrorResponse(
-        `Failed to create scene: ${error?.message || 'Unknown error'}`,
+        `Failed to configure shadow: ${error?.message || 'Unknown error'}`,
         [
           'Ensure Godot is installed correctly',
           'Check if the GODOT_PATH environment variable is set correctly',
@@ -2684,6 +2739,70 @@ class GodotServer {
         ]
       );
     }
+  }
+
+  /**
+   * Handle the create_camera3d tool
+   */
+  private async handleCreateCamera3D(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, and nodeName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_camera3d', args, args.projectPath);
+      if (stderr && stderr.includes('Failed to')) {
+        return this.createErrorResponse(`Failed to create Camera3D: ${stderr}`, ['Verify the scene path and node name']);
+      }
+      return {
+        content: [{ type: 'text', text: `Camera3D created successfully at: ${args.scenePath}\n\nOutput: ${stdout}` }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create Camera3D: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle the configure_camera3d tool
+   */
+  private async handleConfigureCamera3D(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath || !args.properties) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, nodePath, and properties']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_camera3d', args, args.projectPath);
+      if (stderr && stderr.includes('Failed to')) {
+        return this.createErrorResponse(`Failed to configure Camera3D: ${stderr}`, ['Verify the node path and properties']);
+      }
+      return {
+        content: [{ type: 'text', text: `Camera3D configured successfully for node: ${args.nodePath}\n\nOutput: ${stdout}` }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure Camera3D: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle the set_camera_environment tool
+   */
+  private async handleSetCameraEnvironment(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.cameraNodePath || !args.environmentPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, cameraNodePath, and environmentPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('set_camera_environment', args, args.projectPath);
+      if (stderr && stderr.includes('Failed to')) {
+        return this.createErrorResponse(`Failed to set camera environment: ${stderr}`, ['Verify the camera node path and environment resource path']);
+      }
+      return {
+        content: [{ type: 'text', text: `Camera environment set successfully for node: ${args.cameraNodePath}\n\nOutput: ${stdout}` }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set camera environment: ${error?.message || 'Unknown error'}`);
+    }
+  }
   }
 
   /**
