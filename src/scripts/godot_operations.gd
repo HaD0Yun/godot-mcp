@@ -115,6 +115,16 @@ func _init():
                 create_collision_shape(params)
             "create_area":
                 create_area(params)
+            "create_animation_tree":
+                create_animation_tree(params)
+            "add_animation_state":
+                add_animation_state(params)
+            "add_animation_transition":
+                add_animation_transition(params)
+            "configure_blend_tree":
+                configure_blend_tree(params)
+            "set_animation_tree_parameter":
+                set_animation_tree_parameter(params)
             _:
                 log_error("Unknown operation: " + operation)
                 quit(1)
@@ -2491,4 +2501,233 @@ func bake_navigation_mesh(params):
             printerr("Failed to save scene: " + str(error))
     else:
         printerr("Failed to pack scene: " + str(result))
+
+# --- AnimationTree Tools ---
+
+# Create an AnimationTree node
+func create_animation_tree(params):
+    print("Creating AnimationTree: " + params.node_name + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    var tree = AnimationTree.new()
+    tree.name = params.node_name
+    
+    if params.has("animation_player_path"):
+        tree.anim_player = params.animation_player_path
+    
+    # Create the root animation node
+    var root_node = null
+    if params.tree_type == "AnimationNodeStateMachine":
+        root_node = AnimationNodeStateMachine.new()
+    elif params.tree_type == "AnimationNodeBlendTree":
+        root_node = AnimationNodeBlendTree.new()
+    else:
+        printerr("Unknown tree type: " + params.tree_type)
+        quit(1)
+        
+    tree.tree_root = root_node
+    tree.active = true
+    
+    parent.add_child(tree)
+    tree.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("AnimationTree created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Add a state to an AnimationNodeStateMachine
+func add_animation_state(params):
+    print("Adding animation state: " + params.state_name + " to AnimationTree: " + params.animation_tree_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var tree_path = params.animation_tree_path
+    if tree_path.begins_with("root/"):
+        tree_path = tree_path.substr(5)
+    
+    var tree = scene_root.get_node(tree_path)
+    if not tree or not (tree is AnimationTree):
+        printerr("AnimationTree not found or invalid: " + params.animation_tree_path)
+        quit(1)
+        
+    var state_machine = tree.tree_root
+    if not (state_machine is AnimationNodeStateMachine):
+        printerr("AnimationTree root is not an AnimationNodeStateMachine")
+        quit(1)
+        
+    var node = AnimationNodeAnimation.new()
+    if params.has("animation_name"):
+        node.animation = params.animation_name
+        
+    state_machine.add_node(params.state_name, node)
+    
+    if params.has("position"):
+        state_machine.set_graph_offset(Vector2(params.position.x, params.position.y))
+        # Note: Godot 4 uses set_node_position in the editor, but for the resource itself:
+        # State machine positions are stored in the resource.
+        # AnimationNodeStateMachine doesn't have a direct set_node_position in API, 
+        # it's usually handled by the editor. However, we can try to set it if available.
+        if state_machine.has_method("set_node_position"):
+            state_machine.set_node_position(params.state_name, Vector2(params.position.x, params.position.y))
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        ResourceSaver.save(packed_scene, absolute_scene_path)
+        print("Animation state added successfully")
+    else:
+        printerr("Failed to pack scene")
+
+# Add a transition to an AnimationNodeStateMachine
+func add_animation_transition(params):
+    print("Adding transition from " + params.from_state + " to " + params.to_state)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var tree_path = params.animation_tree_path
+    if tree_path.begins_with("root/"):
+        tree_path = tree_path.substr(5)
+    
+    var tree = scene_root.get_node(tree_path)
+    var state_machine = tree.tree_root
+    
+    var transition = AnimationNodeStateMachineTransition.new()
+    if params.has("properties"):
+        for prop in params.properties:
+            transition.set(prop, params.properties[prop])
+            
+    state_machine.add_transition(params.from_state, params.to_state, transition)
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        ResourceSaver.save(packed_scene, absolute_scene_path)
+        print("Animation transition added successfully")
+    else:
+        printerr("Failed to pack scene")
+
+# Configure AnimationNodeBlendTree
+func configure_blend_tree(params):
+    print("Configuring blend tree node: " + params.node_name)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var tree_path = params.animation_tree_path
+    if tree_path.begins_with("root/"):
+        tree_path = tree_path.substr(5)
+    
+    var tree = scene_root.get_node(tree_path)
+    var blend_tree = tree.tree_root
+    
+    if not (blend_tree is AnimationNodeBlendTree):
+        printerr("AnimationTree root is not an AnimationNodeBlendTree")
+        quit(1)
+        
+    var node = instantiate_class(params.node_type)
+    if not node:
+        printerr("Failed to instantiate animation node type: " + params.node_type)
+        quit(1)
+        
+    if params.has("properties"):
+        for prop in params.properties:
+            smart_set(node, prop, params.properties[prop])
+            
+    blend_tree.add_node(params.node_name, node)
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        ResourceSaver.save(packed_scene, absolute_scene_path)
+        print("Blend tree node configured successfully")
+    else:
+        printerr("Failed to pack scene")
+
+# Set AnimationTree parameter
+func set_animation_tree_parameter(params):
+    print("Setting parameter " + params.parameter_name + " on AnimationTree: " + params.animation_tree_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var tree_path = params.animation_tree_path
+    if tree_path.begins_with("root/"):
+        tree_path = tree_path.substr(5)
+    
+    var tree = scene_root.get_node(tree_path)
+    
+    # Parameters are set on the AnimationTree node directly in Godot 4
+    # using the "parameters/..." prefix.
+    tree.set(params.parameter_name, params.value)
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        ResourceSaver.save(packed_scene, absolute_scene_path)
+        print("AnimationTree parameter set successfully")
+    else:
+        printerr("Failed to pack scene")
 

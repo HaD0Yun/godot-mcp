@@ -116,6 +116,14 @@ class GodotServer {
     'target_position': 'targetPosition',
     'shape_type': 'shapeType',
     'shape_properties': 'shapeProperties',
+    'animation_player_path': 'animationPlayerPath',
+    'tree_type': 'treeType',
+    'animation_tree_path': 'animationTreePath',
+    'state_name': 'stateName',
+    'animation_name': 'animationName',
+    'from_state': 'fromState',
+    'to_state': 'toState',
+    'parameter_name': 'parameterName',
   };
 
 
@@ -1673,6 +1681,96 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
           },
         },
+        {
+          name: 'create_animation_tree',
+          description: 'Create an AnimationTree node with a state machine or blend tree',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node' },
+              nodeName: { type: 'string', description: 'Name for the AnimationTree node' },
+              animationPlayerPath: { type: 'string', description: 'Path to the AnimationPlayer node' },
+              treeType: { 
+                type: 'string', 
+                enum: ['AnimationNodeStateMachine', 'AnimationNodeBlendTree'],
+                description: 'Type of root animation node'
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName', 'treeType'],
+          },
+        },
+        {
+          name: 'add_animation_state',
+          description: 'Add a state to an AnimationNodeStateMachine',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              animationTreePath: { type: 'string', description: 'Path to the AnimationTree node' },
+              stateName: { type: 'string', description: 'Name for the new state' },
+              animationName: { type: 'string', description: 'Name of the animation to play' },
+              position: { 
+                type: 'object', 
+                properties: {
+                  x: { type: 'number' },
+                  y: { type: 'number' },
+                },
+                description: 'Position in the state machine editor'
+              },
+            },
+            required: ['projectPath', 'scenePath', 'animationTreePath', 'stateName'],
+          },
+        },
+        {
+          name: 'add_animation_transition',
+          description: 'Add a transition between states in an AnimationNodeStateMachine',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              animationTreePath: { type: 'string' },
+              fromState: { type: 'string' },
+              toState: { type: 'string' },
+              properties: { type: 'object', description: 'Transition properties (switch_mode, advance_mode, etc.)' },
+            },
+            required: ['projectPath', 'scenePath', 'animationTreePath', 'fromState', 'toState'],
+          },
+        },
+        {
+          name: 'configure_blend_tree',
+          description: 'Add and configure nodes in an AnimationNodeBlendTree',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              animationTreePath: { type: 'string' },
+              nodeName: { type: 'string' },
+              nodeType: { type: 'string', description: 'Type of animation node (e.g., AnimationNodeOneShot)' },
+              properties: { type: 'object' },
+            },
+            required: ['projectPath', 'scenePath', 'animationTreePath', 'nodeName', 'nodeType'],
+          },
+        },
+        {
+          name: 'set_animation_tree_parameter',
+          description: 'Set a parameter value on an AnimationTree',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              animationTreePath: { type: 'string' },
+              parameterName: { type: 'string' },
+              value: { type: 'any' },
+            },
+            required: ['projectPath', 'scenePath', 'animationTreePath', 'parameterName', 'value'],
+          },
+        },
       ],
     }));
     
@@ -1772,6 +1870,16 @@ class GodotServer {
           return await this.handleCreateCollisionShape(request.params.arguments);
         case 'create_area':
           return await this.handleCreateArea(request.params.arguments);
+        case 'create_animation_tree':
+          return await this.handleCreateAnimationTree(request.params.arguments);
+        case 'add_animation_state':
+          return await this.handleAddAnimationState(request.params.arguments);
+        case 'add_animation_transition':
+          return await this.handleAddAnimationTransition(request.params.arguments);
+        case 'configure_blend_tree':
+          return await this.handleConfigureBlendTree(request.params.arguments);
+        case 'set_animation_tree_parameter':
+          return await this.handleSetAnimationTreeParameter(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -3980,6 +4088,101 @@ class GodotServer {
       return { content: [{ type: 'text', text: stdout.trim() }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to create area: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_animation_tree tool
+   */
+  private async handleCreateAnimationTree(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName || !args.treeType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, nodeName, and treeType']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_animation_tree', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create animation tree: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create animation tree: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle add_animation_state tool
+   */
+  private async handleAddAnimationState(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.animationTreePath || !args.stateName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animationTreePath, and stateName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('add_animation_state', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to add animation state: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to add animation state: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle add_animation_transition tool
+   */
+  private async handleAddAnimationTransition(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.animationTreePath || !args.fromState || !args.toState) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animationTreePath, fromState, and toState']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('add_animation_transition', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to add animation transition: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to add animation transition: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_blend_tree tool
+   */
+  private async handleConfigureBlendTree(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.animationTreePath || !args.nodeName || !args.nodeType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animationTreePath, nodeName, and nodeType']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_blend_tree', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure blend tree: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure blend tree: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle set_animation_tree_parameter tool
+   */
+  private async handleSetAnimationTreeParameter(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.animationTreePath || !args.parameterName || args.value === undefined) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animationTreePath, parameterName, and value']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('set_animation_tree_parameter', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to set animation tree parameter: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set animation tree parameter: ${error?.message || 'Unknown error'}`);
     }
   }
 
