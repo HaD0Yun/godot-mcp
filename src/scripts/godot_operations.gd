@@ -125,6 +125,14 @@ func _init():
                 configure_blend_tree(params)
             "set_animation_tree_parameter":
                 set_animation_tree_parameter(params)
+            "create_theme":
+                create_theme(params)
+            "configure_theme_type":
+                configure_theme_type(params)
+            "create_stylebox":
+                create_stylebox(params)
+            "configure_control_anchors":
+                configure_control_anchors(params)
             _:
                 log_error("Unknown operation: " + operation)
                 quit(1)
@@ -2730,4 +2738,169 @@ func set_animation_tree_parameter(params):
         print("AnimationTree parameter set successfully")
     else:
         printerr("Failed to pack scene")
+
+# --- UI/Theme Tools ---
+
+# Create a Theme resource file
+func create_theme(params):
+    print("Creating Theme: " + params.theme_path)
+    
+    var theme_path = params.theme_path
+    if not theme_path.begins_with("res://"):
+        theme_path = "res://" + theme_path
+    
+    var absolute_path = ProjectSettings.globalize_path(theme_path)
+    
+    var theme = Theme.new()
+    
+    if params.has("default_font") and params.default_font != "":
+        var font_path = params.default_font
+        if not font_path.begins_with("res://"):
+            font_path = "res://" + font_path
+        var font = load(font_path)
+        if font:
+            theme.default_font = font
+            
+    if params.has("default_font_size"):
+        theme.default_font_size = int(params.default_font_size)
+        
+    var error = ResourceSaver.save(theme, absolute_path)
+    if error == OK:
+        print("Theme saved successfully to: " + theme_path)
+    else:
+        printerr("Failed to save Theme: " + str(error))
+
+# Configure style items for a specific type in a Theme
+func configure_theme_type(params):
+    print("Configuring type '" + params.type_name + "' in Theme: " + params.theme_path)
+    
+    var theme_path = params.theme_path
+    if not theme_path.begins_with("res://"):
+        theme_path = "res://" + theme_path
+        
+    var theme = load(theme_path)
+    if not theme or not (theme is Theme):
+        printerr("Theme not found or invalid: " + theme_path)
+        quit(1)
+        
+    var data = params.data
+    var type = params.type_name
+    
+    if data.has("colors"):
+        for name in data.colors:
+            theme.set_color(name, type, Color(data.colors[name]))
+            
+    if data.has("constants"):
+        for name in data.constants:
+            theme.set_constant(name, type, int(data.constants[name]))
+            
+    if data.has("fonts"):
+        for name in data.fonts:
+            var font_path = data.fonts[name]
+            if not font_path.begins_with("res://"):
+                font_path = "res://" + font_path
+            var font = load(font_path)
+            if font:
+                theme.set_font(name, type, font)
+                
+    if data.has("font_sizes"):
+        for name in data.font_sizes:
+            theme.set_font_size(name, type, int(data.font_sizes[name]))
+            
+    if data.has("icons"):
+        for name in data.icons:
+            var icon_path = data.icons[name]
+            if not icon_path.begins_with("res://"):
+                icon_path = "res://" + icon_path
+            var icon = load(icon_path)
+            if icon:
+                theme.set_icon(name, type, icon)
+                
+    if data.has("styleboxes"):
+        for name in data.styleboxes:
+            var sb_path = data.styleboxes[name]
+            if not sb_path.begins_with("res://"):
+                sb_path = "res://" + sb_path
+            var sb = load(sb_path)
+            if sb:
+                theme.set_stylebox(name, type, sb)
+                
+    var error = ResourceSaver.save(theme, theme_path)
+    if error == OK:
+        print("Theme configured successfully")
+    else:
+        printerr("Failed to save Theme: " + str(error))
+
+# Create a StyleBox resource file
+func create_stylebox(params):
+    print("Creating StyleBox: " + params.stylebox_path + " of type: " + params.stylebox_type)
+    
+    var stylebox_path = params.stylebox_path
+    if not stylebox_path.begins_with("res://"):
+        stylebox_path = "res://" + stylebox_path
+        
+    var absolute_path = ProjectSettings.globalize_path(stylebox_path)
+    
+    var sb = null
+    match params.stylebox_type:
+        "StyleBoxFlat":
+            sb = StyleBoxFlat.new()
+        "StyleBoxTexture":
+            sb = StyleBoxTexture.new()
+        "StyleBoxLine":
+            sb = StyleBoxLine.new()
+        "StyleBoxEmpty":
+            sb = StyleBoxEmpty.new()
+        _:
+            printerr("Unknown StyleBox type: " + params.stylebox_type)
+            quit(1)
+            
+    if params.has("properties"):
+        var properties = params.properties
+        for prop in properties:
+            smart_set(sb, prop, properties[prop])
+            
+    var error = ResourceSaver.save(sb, absolute_path)
+    if error == OK:
+        print("StyleBox saved successfully to: " + stylebox_path)
+    else:
+        printerr("Failed to save StyleBox: " + str(error))
+
+# Configure anchors and offsets for a Control node
+func configure_control_anchors(params):
+    print("Configuring anchors for Control node: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+        
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var node_path = params.node_path
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+        
+    var node = scene_root.get_node(node_path)
+    if not node or not (node is Control):
+        printerr("Control node not found or invalid: " + params.node_path)
+        quit(1)
+        
+    var preset = int(params.anchor_preset)
+    
+    # In Godot 4, it's set_anchors_and_offsets_preset
+    var layout_mode = int(params.layout_mode) if params.has("layout_mode") else 0
+    var margin = int(params.margin) if params.has("margin") else 0
+    
+    node.set_anchors_and_offsets_preset(preset, layout_mode, margin)
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        ResourceSaver.save(packed_scene, absolute_scene_path)
+        print("Control anchors configured successfully")
+    else:
+        printerr("Failed to pack scene")
+
 

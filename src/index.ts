@@ -124,6 +124,15 @@ class GodotServer {
     'from_state': 'fromState',
     'to_state': 'toState',
     'parameter_name': 'parameterName',
+    'theme_path': 'themePath',
+    'base_theme': 'baseTheme',
+    'default_font': 'defaultFont',
+    'default_font_size': 'defaultFontSize',
+    'type_name': 'typeName',
+    'stylebox_path': 'styleboxPath',
+    'stylebox_type': 'styleboxType',
+    'anchor_preset': 'anchorPreset',
+    'layout_mode': 'layoutMode',
   };
 
 
@@ -1771,6 +1780,82 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'animationTreePath', 'parameterName', 'value'],
           },
         },
+        {
+          name: 'create_theme',
+          description: 'Create a Theme resource file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              themePath: { type: 'string', description: 'Output path for theme file (.tres)' },
+              defaultFont: { type: 'string', description: 'Path to default font file' },
+              defaultFontSize: { type: 'number' },
+            },
+            required: ['projectPath', 'themePath'],
+          },
+        },
+        {
+          name: 'configure_theme_type',
+          description: 'Configure styles for a control type in a Theme resource',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              themePath: { type: 'string', description: 'Path to the theme file' },
+              typeName: { type: 'string', description: 'Control type name (e.g., "Button", "Label")' },
+              data: {
+                type: 'object',
+                description: 'Style data: colors, constants, fonts, font_sizes, icons, styleboxes',
+                properties: {
+                  colors: { type: 'object', additionalProperties: { type: 'string' } },
+                  constants: { type: 'object', additionalProperties: { type: 'number' } },
+                  fonts: { type: 'object', additionalProperties: { type: 'string' } },
+                  font_sizes: { type: 'object', additionalProperties: { type: 'number' } },
+                  icons: { type: 'object', additionalProperties: { type: 'string' } },
+                  styleboxes: { type: 'object', additionalProperties: { type: 'string' } },
+                }
+              },
+            },
+            required: ['projectPath', 'themePath', 'typeName', 'data'],
+          },
+        },
+        {
+          name: 'create_stylebox',
+          description: 'Create a StyleBox resource file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              styleboxPath: { type: 'string', description: 'Output path for the stylebox file (.tres)' },
+              styleboxType: {
+                type: 'string',
+                enum: ['StyleBoxFlat', 'StyleBoxTexture', 'StyleBoxLine', 'StyleBoxEmpty'],
+                description: 'Type of StyleBox'
+              },
+              properties: { type: 'object', description: 'StyleBox properties' },
+            },
+            required: ['projectPath', 'styleboxPath', 'styleboxType'],
+          },
+        },
+        {
+          name: 'configure_control_anchors',
+          description: 'Configure anchors and offsets for a Control node using presets',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              nodePath: { type: 'string', description: 'Path to the Control node' },
+              anchorPreset: { 
+                type: 'number', 
+                description: 'Layout preset index (0-15). 0: Top-Left, 8: Center, 15: Full Rect, etc.' 
+              },
+              layoutMode: { type: 'number', description: 'Layout preset mode (0-3)' },
+              margin: { type: 'number', description: 'Margin/Offset from anchor' },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'anchorPreset'],
+          },
+        },
       ],
     }));
     
@@ -1880,6 +1965,14 @@ class GodotServer {
           return await this.handleConfigureBlendTree(request.params.arguments);
         case 'set_animation_tree_parameter':
           return await this.handleSetAnimationTreeParameter(request.params.arguments);
+        case 'create_theme':
+          return await this.handleCreateTheme(request.params.arguments);
+        case 'configure_theme_type':
+          return await this.handleConfigureThemeType(request.params.arguments);
+        case 'create_stylebox':
+          return await this.handleCreateStylebox(request.params.arguments);
+        case 'configure_control_anchors':
+          return await this.handleConfigureControlAnchors(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -4183,6 +4276,82 @@ class GodotServer {
       return { content: [{ type: 'text', text: stdout.trim() }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to set animation tree parameter: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_theme tool
+   */
+  private async handleCreateTheme(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.themePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and themePath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_theme', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create theme: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create theme: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_theme_type tool
+   */
+  private async handleConfigureThemeType(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.themePath || !args.typeName || !args.data) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, themePath, typeName, and data']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_theme_type', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure theme type: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure theme type: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_stylebox tool
+   */
+  private async handleCreateStylebox(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.styleboxPath || !args.styleboxType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, styleboxPath, and styleboxType']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_stylebox', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create stylebox: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create stylebox: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_control_anchors tool
+   */
+  private async handleConfigureControlAnchors(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath || args.anchorPreset === undefined) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, nodePath, and anchorPreset']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_control_anchors', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure control anchors: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure control anchors: ${error?.message || 'Unknown error'}`);
     }
   }
 
