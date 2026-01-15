@@ -103,6 +103,18 @@ func _init():
                 add_rpc_config(params)
             "get_multiplayer_info":
                 get_multiplayer_info(params)
+            "create_physics_joint":
+                create_physics_joint(params)
+            "create_physics_material":
+                create_physics_material(params)
+            "configure_collision_layers":
+                configure_collision_layers(params)
+            "create_raycast":
+                create_raycast(params)
+            "create_collision_shape":
+                create_collision_shape(params)
+            "create_area":
+                create_area(params)
             _:
                 log_error("Unknown operation: " + operation)
                 quit(1)
@@ -1682,6 +1694,354 @@ func set_node_properties(params):
         
         if error == OK:
             print("Node properties set successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# --- Physics Tools ---
+
+# Create a physics joint node
+func create_physics_joint(params):
+    print("Creating physics joint: " + params.node_name + " of type: " + params.joint_type + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    # Create joint node
+    var joint = instantiate_class(params.joint_type)
+    if not joint:
+        printerr("Failed to instantiate joint type: " + params.joint_type)
+        quit(1)
+    
+    joint.name = params.node_name
+    
+    # Set node paths for nodes to connect
+    if params.has("node_a"):
+        joint.node_a = params.node_a
+    if params.has("node_b"):
+        joint.node_b = params.node_b
+    
+    # Set other properties
+    if params.has("properties"):
+        var properties = params.properties
+        for prop in properties:
+            smart_set(joint, prop, properties[prop])
+    
+    parent.add_child(joint)
+    joint.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Physics joint '" + params.node_name + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Create a PhysicsMaterial resource
+func create_physics_material(params):
+    print("Creating PhysicsMaterial: " + params.material_path)
+    
+    var material_path = params.material_path
+    if not material_path.begins_with("res://"):
+        material_path = "res://" + material_path
+    
+    var absolute_path = ProjectSettings.globalize_path(material_path)
+    
+    var mat = PhysicsMaterial.new()
+    
+    if params.has("friction"):
+        mat.friction = float(params.friction)
+    if params.has("rough"):
+        mat.rough = bool(params.rough)
+    if params.has("bounce"):
+        mat.bounce = float(params.bounce)
+    if params.has("absorbent"):
+        mat.absorbent = bool(params.absorbent)
+    
+    var error = ResourceSaver.save(mat, absolute_path)
+    if error == OK:
+        print("PhysicsMaterial saved successfully to: " + material_path)
+    else:
+        printerr("Failed to save PhysicsMaterial: " + str(error))
+
+# Configure collision layers and masks
+func configure_collision_layers(params):
+    print("Configuring collision layers for node: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    var node_path = params.node_path
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+    
+    var node = scene_root.get_node(node_path)
+    if not node:
+        printerr("Node not found: " + params.node_path)
+        quit(1)
+    
+    if params.has("collision_layer"):
+        node.set("collision_layer", int(params.collision_layer))
+    if params.has("collision_mask"):
+        node.set("collision_mask", int(params.collision_mask))
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Collision layers configured successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Create a RayCast node
+func create_raycast(params):
+    print("Creating RayCast node: " + params.node_name + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    # Create RayCast node
+    var ray_type = "RayCast3D"
+    if params.has("is_3d") and not bool(params.is_3d):
+        ray_type = "RayCast2D"
+    
+    var ray = instantiate_class(ray_type)
+    ray.name = params.node_name
+    
+    if params.has("enabled"):
+        ray.enabled = bool(params.enabled)
+    
+    if params.has("target_position"):
+        smart_set(ray, "target_position", params.target_position)
+    
+    if params.has("properties"):
+        var properties = params.properties
+        for prop in properties:
+            smart_set(ray, prop, properties[prop])
+    
+    parent.add_child(ray)
+    ray.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("RayCast '" + params.node_name + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Create a CollisionShape node with a specific shape
+func create_collision_shape(params):
+    print("Creating CollisionShape: " + params.node_name + " with shape: " + params.shape_type + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    # Create CollisionShape node
+    var is_3d = true
+    if params.has("is_3d") and not bool(params.is_3d):
+        is_3d = false
+    
+    var node_type = "CollisionShape3D" if is_3d else "CollisionShape2D"
+    var col_node = instantiate_class(node_type)
+    col_node.name = params.node_name
+    
+    # Create Shape resource
+    var shape = instantiate_class(params.shape_type)
+    if not shape:
+        # Try to infer if it's missing 2D/3D suffix
+        var guessed_shape = params.shape_type + ("3D" if is_3d else "2D")
+        shape = instantiate_class(guessed_shape)
+        if not shape:
+            printerr("Failed to instantiate shape type: " + params.shape_type)
+            quit(1)
+    
+    if params.has("shape_properties"):
+        var properties = params.shape_properties
+        for prop in properties:
+            smart_set(shape, prop, properties[prop])
+            
+    col_node.shape = shape
+    
+    parent.add_child(col_node)
+    col_node.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("CollisionShape '" + params.node_name + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Create an Area2D/3D node
+func create_area(params):
+    print("Creating Area node: " + params.node_name + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    # Create Area node
+    var node_type = "Area3D"
+    if params.has("is_3d") and not bool(params.is_3d):
+        node_type = "Area2D"
+    
+    var area = instantiate_class(node_type)
+    area.name = params.node_name
+    
+    if params.has("properties"):
+        var properties = params.properties
+        for prop in properties:
+            smart_set(area, prop, properties[prop])
+    
+    parent.add_child(area)
+    area.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Area '" + params.node_name + "' created successfully")
         else:
             printerr("Failed to save scene: " + str(error))
     else:

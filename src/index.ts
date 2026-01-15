@@ -107,6 +107,15 @@ class GodotServer {
     'rpc_mode': 'rpcMode',
     'call_local': 'callLocal',
     'channel': 'channel',
+    'joint_type': 'jointType',
+    'node_a': 'nodeA',
+    'node_b': 'nodeB',
+    'collision_layer': 'collisionLayer',
+    'collision_mask': 'collisionMask',
+    'is_3d': 'is3d',
+    'target_position': 'targetPosition',
+    'shape_type': 'shapeType',
+    'shape_properties': 'shapeProperties',
   };
 
 
@@ -1554,6 +1563,116 @@ class GodotServer {
             required: ['projectPath'],
           },
         },
+        {
+          name: 'create_physics_joint',
+          description: 'Create a physics joint (PinJoint2D/3D, HingeJoint3D, etc.)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              parentNodePath: { type: 'string' },
+              nodeName: { type: 'string' },
+              jointType: { 
+                type: 'string',
+                enum: ['PinJoint2D', 'GrooveJoint2D', 'DampedSpringJoint2D', 
+                       'PinJoint3D', 'HingeJoint3D', 'SliderJoint3D', 'ConeTwistJoint3D', 'Generic6DOFJoint3D']
+              },
+              nodeA: { type: 'string', description: 'Path to the first node' },
+              nodeB: { type: 'string', description: 'Path to the second node' },
+              properties: { type: 'object' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName', 'jointType'],
+          },
+        },
+        {
+          name: 'create_physics_material',
+          description: 'Create a PhysicsMaterial resource file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              materialPath: { type: 'string', description: 'Path to save the material (.tres)' },
+              friction: { type: 'number' },
+              rough: { type: 'boolean' },
+              bounce: { type: 'number' },
+              absorbent: { type: 'boolean' },
+            },
+            required: ['projectPath', 'materialPath'],
+          },
+        },
+        {
+          name: 'configure_collision_layers',
+          description: 'Configure collision layers and masks for a node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              nodePath: { type: 'string' },
+              collisionLayer: { type: 'number' },
+              collisionMask: { type: 'number' },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath'],
+          },
+        },
+        {
+          name: 'create_raycast',
+          description: 'Create a RayCast2D or RayCast3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              parentNodePath: { type: 'string' },
+              nodeName: { type: 'string' },
+              is3d: { type: 'boolean', default: true },
+              enabled: { type: 'boolean', default: true },
+              targetPosition: { type: 'object', description: 'Vector2 or Vector3' },
+              properties: { type: 'object' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
+        {
+          name: 'create_collision_shape',
+          description: 'Create a CollisionShape2D or CollisionShape3D with a shape',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              parentNodePath: { type: 'string' },
+              nodeName: { type: 'string' },
+              is3d: { type: 'boolean', default: true },
+              shapeType: { 
+                type: 'string',
+                enum: ['RectangleShape2D', 'CircleShape2D', 'CapsuleShape2D', 'SeparationRayShape2D', 
+                       'WorldBoundaryShape2D', 'SegmentShape2D', 'ConcavePolygonShape2D', 'ConvexPolygonShape2D',
+                       'BoxShape3D', 'SphereShape3D', 'CapsuleShape3D', 'CylinderShape3D', 
+                       'WorldBoundaryShape3D', 'SeparationRayShape3D', 'ConcavePolygonShape3D', 'ConvexPolygonShape3D']
+              },
+              shapeProperties: { type: 'object' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName', 'shapeType'],
+          },
+        },
+        {
+          name: 'create_area',
+          description: 'Create an Area2D or Area3D node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string' },
+              scenePath: { type: 'string' },
+              parentNodePath: { type: 'string' },
+              nodeName: { type: 'string' },
+              is3d: { type: 'boolean', default: true },
+              properties: { type: 'object' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
       ],
     }));
     
@@ -1641,6 +1760,18 @@ class GodotServer {
           return await this.handleAddRpcConfig(request.params.arguments);
         case 'get_multiplayer_info':
           return await this.handleGetMultiplayerInfo(request.params.arguments);
+        case 'create_physics_joint':
+          return await this.handleCreatePhysicsJoint(request.params.arguments);
+        case 'create_physics_material':
+          return await this.handleCreatePhysicsMaterial(request.params.arguments);
+        case 'configure_collision_layers':
+          return await this.handleConfigureCollisionLayers(request.params.arguments);
+        case 'create_raycast':
+          return await this.handleCreateRaycast(request.params.arguments);
+        case 'create_collision_shape':
+          return await this.handleCreateCollisionShape(request.params.arguments);
+        case 'create_area':
+          return await this.handleCreateArea(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -3735,6 +3866,120 @@ class GodotServer {
       return { content: [{ type: 'text', text: stdout.trim() }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to get multiplayer info: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_physics_joint tool
+   */
+  private async handleCreatePhysicsJoint(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName || !args.jointType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, nodeName, and jointType']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_physics_joint', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create physics joint: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create physics joint: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_physics_material tool
+   */
+  private async handleCreatePhysicsMaterial(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.materialPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and materialPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_physics_material', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create physics material: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create physics material: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_collision_layers tool
+   */
+  private async handleConfigureCollisionLayers(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, and nodePath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_collision_layers', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure collision layers: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure collision layers: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_raycast tool
+   */
+  private async handleCreateRaycast(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_raycast', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create raycast: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create raycast: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_collision_shape tool
+   */
+  private async handleCreateCollisionShape(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName || !args.shapeType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, nodeName, and shapeType']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_collision_shape', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create collision shape: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create collision shape: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_area tool
+   */
+  private async handleCreateArea(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_area', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create area: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create area: ${error?.message || 'Unknown error'}`);
     }
   }
 
