@@ -133,6 +133,11 @@ class GodotServer {
     'stylebox_type': 'styleboxType',
     'anchor_preset': 'anchorPreset',
     'layout_mode': 'layoutMode',
+    'mesh_library_path': 'meshLibraryPath',
+    'cells': 'cells',
+    'coords': 'coords',
+    'item': 'item',
+    'orientation': 'orientation',
   };
 
 
@@ -1856,6 +1861,71 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'nodePath', 'anchorPreset'],
           },
         },
+        {
+          name: 'create_gridmap',
+          description: 'Create a GridMap node in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node' },
+              nodeName: { type: 'string', description: 'Name for the GridMap node' },
+              meshLibraryPath: { type: 'string', description: 'Path to the MeshLibrary resource' },
+              properties: { type: 'object', description: 'Optional properties to set' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'nodeName'],
+          },
+        },
+        {
+          name: 'set_gridmap_cells',
+          description: 'Set cells in a GridMap node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              nodePath: { type: 'string', description: 'Path to the GridMap node' },
+              cells: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    coords: {
+                      type: 'object',
+                      properties: {
+                        x: { type: 'number' },
+                        y: { type: 'number' },
+                        z: { type: 'number' },
+                      },
+                      required: ['x', 'y', 'z'],
+                    },
+                    item: { type: 'number', description: 'Index of the item in MeshLibrary' },
+                    orientation: { type: 'number', description: 'Optional: Orientation of the item' },
+                  },
+                  required: ['coords', 'item'],
+                },
+                description: 'Array of cells to set',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'cells'],
+          },
+        },
+        {
+          name: 'configure_gridmap',
+          description: 'Configure properties of an existing GridMap node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file' },
+              nodePath: { type: 'string', description: 'Path to the GridMap node' },
+              meshLibraryPath: { type: 'string', description: 'Optional: New MeshLibrary path' },
+              properties: { type: 'object', description: 'GridMap properties: cell_size, cell_scale, etc.' },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath'],
+          },
+        },
       ],
     }));
     
@@ -1973,6 +2043,12 @@ class GodotServer {
           return await this.handleCreateStylebox(request.params.arguments);
         case 'configure_control_anchors':
           return await this.handleConfigureControlAnchors(request.params.arguments);
+        case 'create_gridmap':
+          return await this.handleCreateGridMap(request.params.arguments);
+        case 'set_gridmap_cells':
+          return await this.handleSetGridMapCells(request.params.arguments);
+        case 'configure_gridmap':
+          return await this.handleConfigureGridMap(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -4352,6 +4428,63 @@ class GodotServer {
       return { content: [{ type: 'text', text: stdout.trim() }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to configure control anchors: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_gridmap tool
+   */
+  private async handleCreateGridMap(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, and nodeName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_gridmap', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create GridMap: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create GridMap: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle set_gridmap_cells tool
+   */
+  private async handleSetGridMapCells(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath || !args.cells) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, nodePath, and cells']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('set_gridmap_cells', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to set GridMap cells: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to set GridMap cells: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_gridmap tool
+   */
+  private async handleConfigureGridMap(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, and nodePath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_gridmap', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure GridMap: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure GridMap: ${error?.message || 'Unknown error'}`);
     }
   }
 

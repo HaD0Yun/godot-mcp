@@ -133,11 +133,18 @@ func _init():
                 create_stylebox(params)
             "configure_control_anchors":
                 configure_control_anchors(params)
+            "create_gridmap":
+                create_gridmap(params)
+            "set_gridmap_cells":
+                set_gridmap_cells(params)
+            "configure_gridmap":
+                configure_gridmap(params)
             _:
                 log_error("Unknown operation: " + operation)
                 quit(1)
     else:
-        printerr("Failed to pack scene: " + str(result))
+        printerr("Failed to parse JSON: " + str(error))
+
 
 
 # --- Networking/Multiplayer Tools ---
@@ -299,8 +306,42 @@ func get_multiplayer_info(params):
     print(JSON.stringify(info))
 
 
+# Configure properties on Camera3D node
+func configure_camera3d(params):
+    print("Configuring Camera3D: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var node_path = params.node_path
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+    
+    var camera_node = scene_root.get_node(node_path)
+    if not camera_node or not (camera_node is Camera3D):
+        printerr("Camera3D node not found or invalid: " + params.node_path)
+        quit(1)
+        
+    if params.has("properties"):
+        for prop in params.properties:
+            smart_set(camera_node, prop, params.properties[prop])
+            
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        ResourceSaver.save(packed_scene, absolute_scene_path)
+        print("Camera3D configured successfully")
+    else:
+        printerr("Failed to pack scene")
+
 # Set environment on Camera3D node
 func set_camera_environment(params):
+
     print("Setting environment on Camera3D: " + params.scene_path)
     
     var full_scene_path = params.scene_path
@@ -1124,10 +1165,11 @@ func save_scene(params):
                     print("Absolute file path: " + absolute_path)
                 else:
                     printerr("File reported as saved but does not exist at: " + save_path)
-        else:
-            print("Scene saved successfully to: " + save_path)
+            else:
+                print("Scene saved successfully to: " + save_path)
         else:
             printerr("Failed to save scene: " + str(error))
+
     else:
         printerr("Failed to pack scene: " + str(result))
 
@@ -2065,7 +2107,155 @@ func create_area(params):
     else:
         printerr("Failed to pack scene: " + str(result))
 
+# Create a GridMap node
+func create_gridmap(params):
+    print("Creating GridMap: " + params.node_name + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    var gridmap = GridMap.new()
+    gridmap.name = params.node_name
+    
+    if params.has("mesh_library_path"):
+        var ml_path = params.mesh_library_path
+        if not ml_path.begins_with("res://"):
+            ml_path = "res://" + ml_path
+        var mesh_library = load(ml_path)
+        if mesh_library:
+            gridmap.mesh_library = mesh_library
+            
+    if params.has("properties"):
+        for prop in params.properties:
+            smart_set(gridmap, prop, params.properties[prop])
+            
+    parent.add_child(gridmap)
+    gridmap.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var save_error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if save_error == OK:
+            print("GridMap '" + params.node_name + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(save_error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Set cells in a GridMap node
+func set_gridmap_cells(params):
+    print("Setting cells in GridMap: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var node_path = params.node_path
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+    
+    var gridmap = scene_root.get_node(node_path)
+    if not gridmap or not (gridmap is GridMap):
+        printerr("GridMap node not found or invalid: " + params.node_path)
+        quit(1)
+        
+    if params.has("cells") and params.cells is Array:
+        for cell in params.cells:
+            var pos = Vector3i(int(cell.coords.x), int(cell.coords.y), int(cell.coords.z))
+            var item = int(cell.item)
+            var orientation = int(cell.orientation) if cell.has("orientation") else 0
+            gridmap.set_cell_item(pos, item, orientation)
+            
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var save_error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if save_error == OK:
+            print("GridMap cells set successfully")
+        else:
+            printerr("Failed to save scene: " + str(save_error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Configure GridMap properties
+func configure_gridmap(params):
+    print("Configuring GridMap: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    var scene = load(full_scene_path)
+    var scene_root = scene.instantiate()
+    
+    var node_path = params.node_path
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+    
+    var gridmap = scene_root.get_node(node_path)
+    if not gridmap or not (gridmap is GridMap):
+        printerr("GridMap node not found or invalid: " + params.node_path)
+        quit(1)
+        
+    if params.has("mesh_library_path"):
+        var ml_path = params.mesh_library_path
+        if not ml_path.begins_with("res://"):
+            ml_path = "res://" + ml_path
+        var mesh_library = load(ml_path)
+        if mesh_library:
+            gridmap.mesh_library = mesh_library
+            
+    if params.has("properties"):
+        for prop in params.properties:
+            smart_set(gridmap, prop, params.properties[prop])
+            
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var save_error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if save_error == OK:
+            print("GridMap configured successfully")
+        else:
+            printerr("Failed to save scene: " + str(save_error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
 # --- Helper Functions ---
+
 
 func log_error(msg: String):
     printerr("[ERROR] " + msg)
@@ -2077,10 +2267,11 @@ func log_debug(msg: String):
     if debug_mode:
         print("[DEBUG] " + msg)
 
-func instantiate_class(class_name: String) -> Node:
-    if ClassDB.class_exists(class_name):
-        return ClassDB.instantiate(class_name)
+func instantiate_class(p_class_name: String) -> Node:
+    if ClassDB.class_exists(p_class_name):
+        return ClassDB.instantiate(p_class_name)
     return null
+
 
 func smart_set(obj, prop, value):
     if value is Dictionary:
