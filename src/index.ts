@@ -83,7 +83,15 @@ class GodotServer {
     'properties': 'properties',
     'shadow_enabled': 'shadowEnabled',
     'shadow_type': 'shadowType',
+    'player_type': 'playerType',
+    'stream_path': 'streamPath',
+    'bus_name': 'busName',
+    'volume_db': 'volumeDb',
+    'send_to': 'sendTo',
+    'layout_path': 'layoutPath',
+    'effect_type': 'effectType',
   };
+
 
   /**
    * Reverse mapping from camelCase to snake_case
@@ -1140,6 +1148,176 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'parentNodePath'],
           },
         },
+        {
+          name: 'create_audio_player',
+          description: 'Create an AudioStreamPlayer, AudioStreamPlayer2D, or AudioStreamPlayer3D',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              parentNodePath: {
+                type: 'string',
+                description: 'Path to parent node (e.g., "root" or "root/Player")',
+              },
+              playerType: {
+                type: 'string',
+                enum: ['AudioStreamPlayer', 'AudioStreamPlayer2D', 'AudioStreamPlayer3D'],
+                description: 'Type of audio player to create',
+              },
+              nodeName: {
+                type: 'string',
+                description: 'Name for the audio player node',
+              },
+              streamPath: {
+                type: 'string',
+                description: 'Path to audio file (optional)',
+              },
+              bus: {
+                type: 'string',
+                description: 'Audio bus name (default: Master)',
+              },
+              properties: {
+                type: 'object',
+                description: 'Player properties (volume_db, autoplay, etc.)',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'playerType', 'nodeName'],
+          },
+        },
+        {
+          name: 'configure_audio_bus',
+          description: 'Configure audio bus settings (volume, effects, routing)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              busName: {
+                type: 'string',
+                description: 'Bus name (Master, SFX, Music, etc.)',
+              },
+              volumeDb: {
+                type: 'number',
+                description: 'Volume in decibels (default: 0)',
+              },
+              mute: {
+                type: 'boolean',
+                description: 'Mute the bus',
+              },
+              solo: {
+                type: 'boolean',
+                description: 'Solo the bus',
+              },
+              sendTo: {
+                type: 'string',
+                description: 'Bus to route audio to',
+              },
+            },
+            required: ['projectPath', 'busName'],
+          },
+        },
+        {
+          name: 'add_audio_effect',
+          description: 'Add an audio effect to a bus (Reverb, Delay, EQ, Compressor, etc.)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              busName: {
+                type: 'string',
+                description: 'Bus name to add effect to',
+              },
+              effectType: {
+                type: 'string',
+                enum: ['AudioEffectReverb', 'AudioEffectDelay', 'AudioEffectChorus',
+                       'AudioEffectDistortion', 'AudioEffectEQ', 'AudioEffectCompressor',
+                       'AudioEffectLimiter', 'AudioEffectPhaser', 'AudioEffectPitchShift',
+                       'AudioEffectSpectrumAnalyzer', 'AudioEffectRecord'],
+                description: 'Type of audio effect',
+              },
+              properties: {
+                type: 'object',
+                description: 'Effect-specific properties',
+              },
+            },
+            required: ['projectPath', 'busName', 'effectType'],
+          },
+        },
+        {
+          name: 'create_audio_bus_layout',
+          description: 'Create an AudioBusLayout resource file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              layoutPath: {
+                type: 'string',
+                description: 'Output path for the layout file (.tres)',
+              },
+              buses: {
+                type: 'array',
+                description: 'Array of bus definitions',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', description: 'Bus name' },
+                    volumeDb: { type: 'number', description: 'Volume in decibels' },
+                    sendTo: { type: 'string', description: 'Send to bus' },
+                  },
+                  required: ['name'],
+                },
+              },
+            },
+            required: ['projectPath', 'layoutPath', 'buses'],
+          },
+        },
+        {
+          name: 'get_audio_bus_info',
+          description: 'Get configuration for a specific audio bus',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              busName: {
+                type: 'string',
+                description: 'Bus name to query',
+              },
+            },
+            required: ['projectPath', 'busName'],
+          },
+        },
+        {
+          name: 'list_audio_buses',
+          description: 'List all audio buses in the project with their effects and routing',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+            },
+            required: ['projectPath'],
+          },
+        },
       ],
     }));
     
@@ -1191,6 +1369,18 @@ class GodotServer {
           return await this.handleConfigureEnvironment(request.params.arguments);
         case 'create_sky':
           return await this.handleCreateSky(request.params.arguments);
+        case 'create_audio_player':
+          return await this.handleCreateAudioPlayer(request.params.arguments);
+        case 'configure_audio_bus':
+          return await this.handleConfigureAudioBus(request.params.arguments);
+        case 'add_audio_effect':
+          return await this.handleAddAudioEffect(request.params.arguments);
+        case 'create_audio_bus_layout':
+          return await this.handleCreateAudioBusLayout(request.params.arguments);
+        case 'get_audio_bus_info':
+          return await this.handleGetAudioBusInfo(request.params.arguments);
+        case 'list_audio_buses':
+          return await this.handleListAudioBuses(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -2424,7 +2614,7 @@ class GodotServer {
       }
 
       // Count available tools
-      const toolCount = 22; // Current count of tools (launch_editor, run_project, etc.)
+      const toolCount = 25; // 19 tools + 6 audio tools
 
       // Check for detected issues
       const detectedIssues: string[] = [];
@@ -2882,6 +3072,121 @@ class GodotServer {
         `Failed to configure shadow: ${error?.message || 'Unknown error'}`,
         ['Ensure Godot is installed correctly', 'Verify the project path is accessible']
       );
+    }
+  }
+
+  /**
+   * Handle create_audio_player tool
+   */
+
+  private async handleCreateAudioPlayer(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.parentNodePath || !args.playerType || !args.nodeName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentNodePath, playerType, and nodeName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_audio_player', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create audio player: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create audio player: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle configure_audio_bus tool
+   */
+  private async handleConfigureAudioBus(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.busName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and busName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_audio_bus', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure audio bus: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure audio bus: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle add_audio_effect tool
+   */
+  private async handleAddAudioEffect(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.busName || !args.effectType) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, busName, and effectType']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('add_audio_effect', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to add audio effect: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to add audio effect: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle create_audio_bus_layout tool
+   */
+  private async handleCreateAudioBusLayout(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.layoutPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and layoutPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_audio_bus_layout', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create audio bus layout: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create audio bus layout: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle get_audio_bus_info tool
+   */
+  private async handleGetAudioBusInfo(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.busName) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and busName']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('get_audio_bus_info', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to get audio bus info: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to get audio bus info: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle list_audio_buses tool
+   */
+  private async handleListAudioBuses(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('list_audio_buses', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to list audio buses: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to list audio buses: ${error?.message || 'Unknown error'}`);
     }
   }
 

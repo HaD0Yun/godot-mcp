@@ -45,8 +45,55 @@ func _init():
     
     if error == OK:
         params = json.get_data()
-        else:
-            printerr("Failed to pack scene: " + str(result))
+        
+        match operation:
+            "configure_camera3d":
+                configure_camera3d(params)
+            "set_camera_environment":
+                set_camera_environment(params)
+            "add_node":
+                add_node(params)
+            "load_sprite":
+                load_sprite(params)
+            "export_mesh_library":
+                export_mesh_library(params)
+            "get_uid":
+                get_uid(params)
+            "resave_resources":
+                resave_resources(params)
+            "save_scene":
+                save_scene(params)
+            "create_light":
+                create_light(params)
+            "configure_light":
+                configure_light(params)
+            "create_lightmap_gi":
+                create_lightmap_gi(params)
+            "configure_shadow":
+                configure_shadow(params)
+            "set_node_properties":
+                set_node_properties(params)
+            "create_audio_player":
+                create_audio_player(params)
+            "configure_audio_bus":
+                configure_audio_bus(params)
+            "add_audio_effect":
+                add_audio_effect(params)
+            "create_audio_bus_layout":
+                create_audio_bus_layout(params)
+            "get_audio_bus_info":
+                get_audio_bus_info(params)
+            "list_audio_buses":
+                list_audio_buses(params)
+            _:
+                log_error("Unknown operation: " + operation)
+                quit(1)
+    else:
+        log_error("Failed to parse JSON parameters: " + json.get_error_message())
+        quit(1)
+    
+    quit(0)
+
 
 # Configure Camera3D node properties
 func configure_camera3d(params):
@@ -1596,3 +1643,229 @@ func set_node_properties(params):
             printerr("Failed to save scene: " + str(error))
     else:
         printerr("Failed to pack scene: " + str(result))
+
+# --- Helper Functions ---
+
+func log_error(msg: String):
+    printerr("[ERROR] " + msg)
+
+func log_info(msg: String):
+    print("[INFO] " + msg)
+
+func log_debug(msg: String):
+    if debug_mode:
+        print("[DEBUG] " + msg)
+
+func instantiate_class(class_name: String) -> Node:
+    if ClassDB.class_exists(class_name):
+        return ClassDB.instantiate(class_name)
+    return null
+
+# --- Audio System Tools ---
+
+# Create an AudioStreamPlayer, AudioStreamPlayer2D, or AudioStreamPlayer3D
+func create_audio_player(params):
+    print("Creating audio player: " + params.node_name + " of type: " + params.player_type + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    # Create player node based on type
+    var player_node = null
+    match params.player_type:
+        "AudioStreamPlayer":
+            player_node = AudioStreamPlayer.new()
+        "AudioStreamPlayer2D":
+            player_node = AudioStreamPlayer2D.new()
+        "AudioStreamPlayer3D":
+            player_node = AudioStreamPlayer3D.new()
+        _:
+            printerr("Unknown player type: " + params.player_type)
+            quit(1)
+    
+    player_node.name = params.node_name
+    
+    # Set properties if provided
+    if params.has("stream_path") and params.stream_path != "":
+        var stream_path = params.stream_path
+        if not stream_path.begins_with("res://"):
+            stream_path = "res://" + stream_path
+        var stream = load(stream_path)
+        if stream:
+            player_node.stream = stream
+    
+    if params.has("bus"):
+        player_node.bus = params.bus
+    
+    if params.has("properties"):
+        var properties = params.properties
+        for prop in properties:
+            player_node.set(prop, properties[prop])
+    
+    parent.add_child(player_node)
+    player_node.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Audio player '" + params.node_name + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Configure audio bus settings
+func configure_audio_bus(params):
+    var bus_name = params.bus_name
+    var bus_index = AudioServer.get_bus_index(bus_name)
+    
+    if bus_index == -1:
+        printerr("Audio bus '" + bus_name + "' not found")
+        quit(1)
+    
+    if params.has("volume_db"):
+        AudioServer.set_bus_volume_db(bus_index, params.volume_db)
+    if params.has("mute"):
+        AudioServer.set_bus_mute(bus_index, params.mute)
+    if params.has("solo"):
+        AudioServer.set_bus_solo(bus_index, params.solo)
+    if params.has("send_to"):
+        AudioServer.set_bus_send(bus_index, params.send_to)
+    
+    print("Audio bus '" + bus_name + "' configured successfully")
+
+# Add audio effect to a bus
+func add_audio_effect(params):
+    var bus_name = params.bus_name
+    var bus_index = AudioServer.get_bus_index(bus_name)
+    
+    if bus_index == -1:
+        printerr("Audio bus '" + bus_name + "' not found")
+        quit(1)
+    
+    var effect = ClassDB.instantiate(params.effect_type)
+    if not effect:
+        printerr("Failed to instantiate effect type: " + params.effect_type)
+        quit(1)
+    
+    if params.has("properties"):
+        var properties = params.properties
+        for prop in properties:
+            effect.set(prop, properties[prop])
+    
+    AudioServer.add_bus_effect(bus_index, effect)
+    print("Audio effect '" + params.effect_type + "' added to bus '" + bus_name + "'")
+
+# Create AudioBusLayout resource
+func create_audio_bus_layout(params):
+    var layout_path = params.layout_path
+    if not layout_path.begins_with("res://"):
+        layout_path = "res://" + layout_path
+    
+    var absolute_path = ProjectSettings.globalize_path(layout_path)
+    
+    # Apply bus settings from params if provided before generating
+    if params.has("buses"):
+        for bus in params.buses:
+            var bus_name = bus.name
+            var bus_index = AudioServer.get_bus_index(bus_name)
+            if bus_index == -1:
+                bus_index = AudioServer.bus_count
+                AudioServer.add_bus(bus_index)
+                AudioServer.set_bus_name(bus_index, bus_name)
+            
+            if bus.has("volume_db"):
+                AudioServer.set_bus_volume_db(bus_index, bus.volume_db)
+            if bus.has("send_to"):
+                AudioServer.set_bus_send(bus_index, bus.send_to)
+    
+    var current_layout = AudioServer.generate_bus_layout()
+    var error = ResourceSaver.save(current_layout, absolute_path)
+    if error == OK:
+        print("AudioBusLayout saved successfully to: " + layout_path)
+    else:
+        printerr("Failed to save AudioBusLayout: " + str(error))
+
+# Get info for a specific bus
+func get_audio_bus_info(params):
+    var bus_name = params.bus_name
+    var bus_index = AudioServer.get_bus_index(bus_name)
+    
+    if bus_index == -1:
+        printerr("Audio bus '" + bus_name + "' not found")
+        quit(1)
+    
+    var bus_info = {
+        "name": AudioServer.get_bus_name(bus_index),
+        "volume_db": AudioServer.get_bus_volume_db(bus_index),
+        "mute": AudioServer.is_bus_mute(bus_index),
+        "solo": AudioServer.is_bus_solo(bus_index),
+        "send": AudioServer.get_bus_send(bus_index),
+        "effect_count": AudioServer.get_bus_effect_count(bus_index),
+        "effects": []
+    }
+    
+    for j in AudioServer.get_bus_effect_count(bus_index):
+        var effect = AudioServer.get_bus_effect(bus_index, j)
+        bus_info.effects.append({
+            "name": effect.resource_name,
+            "class": effect.get_class()
+        })
+    
+    print(JSON.stringify(bus_info))
+
+# List all audio buses
+func list_audio_buses(params):
+    var result = get_audio_bus_layout()
+    print(JSON.stringify(result))
+
+func get_audio_bus_layout() -> Dictionary:
+    var result = {"buses": []}
+    for i in AudioServer.bus_count:
+        var bus = {
+            "name": AudioServer.get_bus_name(i),
+            "volume_db": AudioServer.get_bus_volume_db(i),
+            "mute": AudioServer.is_bus_mute(i),
+            "solo": AudioServer.is_bus_solo(i),
+            "send": AudioServer.get_bus_send(i),
+            "effects": []
+        }
+        for j in AudioServer.get_bus_effect_count(i):
+            var effect = AudioServer.get_bus_effect(i, j)
+            bus.effects.append({
+                "name": effect.resource_name,
+                "class": effect.get_class()
+            })
+        result.buses.append(bus)
+    return result
+
