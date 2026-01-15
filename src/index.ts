@@ -1053,7 +1053,91 @@ class GodotServer {
                 description: 'Additional shadow properties: shadow_bias, shadow_normal_bias, shadow_transmittance, etc.',
               },
             },
-            required: ['projectPath', 'scenePath', 'nodePath', 'shadowEnabled'],
+              required: ['projectPath', 'scenePath', 'nodePath', 'shadowEnabled'],
+          },
+        },
+        {
+          name: 'create_world_environment',
+          description: 'Create a WorldEnvironment node with Environment resource',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              parentNodePath: {
+                type: 'string',
+                description: 'Path to parent node (e.g., "root/World")',
+              },
+              nodeName: {
+                type: 'string',
+                description: 'Name for the WorldEnvironment node',
+                default: 'WorldEnvironment',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath'],
+          },
+        },
+        {
+          name: 'configure_environment',
+          description: 'Configure properties of an existing WorldEnvironment node',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              nodePath: {
+                type: 'string',
+                description: 'Path to the WorldEnvironment node',
+              },
+              environmentSettings: {
+                type: 'object',
+                description: 'Environment settings: background_mode, ambient_light, fog, glow, ssao, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'environmentSettings'],
+          },
+        },
+        {
+          name: 'create_sky',
+          description: 'Create a WorldEnvironment with sky resource (ProceduralSkyMaterial, PhysicalSkyMaterial)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file (relative to project)',
+              },
+              parentNodePath: {
+                type: 'string',
+                description: 'Path to parent node (e.g., "root/World")',
+              },
+              nodeName: {
+                type: 'string',
+                description: 'Name for the node',
+                default: 'SkyEnvironment',
+              },
+              skySettings: {
+                type: 'object',
+                description: 'Sky material settings: sky_mode, ground_horizon_color, sky_horizon_color, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath'],
           },
         },
       ],
@@ -1101,6 +1185,12 @@ class GodotServer {
           return await this.handleCreateLightmapGi(request.params.arguments);
         case 'configure_shadow':
           return await this.handleConfigureShadow(request.params.arguments);
+        case 'create_world_environment':
+          return await this.handleCreateWorldEnvironment(request.params.arguments);
+        case 'configure_environment':
+          return await this.handleConfigureEnvironment(request.params.arguments);
+        case 'create_sky':
+          return await this.handleCreateSky(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -2334,7 +2424,7 @@ class GodotServer {
       }
 
       // Count available tools
-      const toolCount = 19; // Current count of tools (launch_editor, run_project, etc.)
+      const toolCount = 22; // Current count of tools (launch_editor, run_project, etc.)
 
       // Check for detected issues
       const detectedIssues: string[] = [];
@@ -2400,6 +2490,86 @@ class GodotServer {
         ['Check if server is running correctly', 'Verify file system access permissions']
       );
     }
+  }
+
+  /**
+   * Handle create_world_environment tool
+   * Create a WorldEnvironment node in a scene
+   * @param args Tool arguments
+   */
+  private async handleCreateWorldEnvironment(args: any) {
+    args = this.normalizeParameters(args);
+
+    const { stdout, stderr } = await this.executeOperation('add_node', {
+      scene_path: args.scenePath,
+      parent_node_path: args.parentNodePath,
+      node_type: 'WorldEnvironment',
+      node_name: args.nodeName || 'WorldEnvironment',
+    }, args.projectPath);
+
+    if (stderr && stderr.includes('Failed to')) {
+      return this.createErrorResponse(
+        `Failed to create WorldEnvironment: ${stderr}`,
+        ['Ensure scene path is correct', 'Node type must be WorldEnvironment']
+      );
+    }
+
+    return { content: [{ type: 'text', text: `WorldEnvironment created successfully.\n\n${stdout}` }] };
+  }
+
+  /**
+   * Handle configure_environment tool
+   * Configure properties of a WorldEnvironment node
+   * @param args Tool arguments
+   */
+  private async handleConfigureEnvironment(args: any) {
+    args = this.normalizeParameters(args);
+
+    const { stdout, stderr } = await this.executeOperation('set_node_properties', {
+      scene_path: args.scenePath,
+      node_path: args.nodePath,
+      properties: args.environmentSettings,
+    }, args.projectPath);
+
+    if (stderr && stderr.includes('Failed to')) {
+      return this.createErrorResponse(
+        `Failed to configure environment: ${stderr}`,
+        ['Check environment settings format', 'Ensure node_path points to valid WorldEnvironment']
+      );
+    }
+
+    return { content: [{ type: 'text', text: `Environment configured successfully.\n\n${stdout}` }] };
+  }
+
+  /**
+   * Handle create_sky tool
+   * Create a WorldEnvironment with sky settings
+   * @param args Tool arguments
+   */
+  private async handleCreateSky(args: any) {
+    args = this.normalizeParameters(args);
+
+    // Sky is a resource, so we create a WorldEnvironment with sky
+    const { stdout, stderr } = await this.executeOperation('add_node', {
+      scene_path: args.scenePath,
+      parent_node_path: args.parentNodePath,
+      node_type: 'WorldEnvironment',
+      node_name: args.nodeName || 'SkyEnvironment',
+      properties: {
+        environment: {
+          sky: args.skySettings || {},
+        }
+      },
+    }, args.projectPath);
+
+    if (stderr && stderr.includes('Failed to')) {
+      return this.createErrorResponse(
+        `Failed to create sky environment: ${stderr}`,
+        ['Ensure sky settings format is valid', 'Scene path must be correct']
+      );
+    }
+
+    return { content: [{ type: 'text', text: `Sky environment created successfully.\n\n${stdout}` }] };
   }
 
   /**
