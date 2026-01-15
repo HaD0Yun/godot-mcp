@@ -85,6 +85,12 @@ func _init():
                 get_audio_bus_info(params)
             "list_audio_buses":
                 list_audio_buses(params)
+            "create_particle_system":
+                create_particle_system(params)
+            "configure_particle_material":
+                configure_particle_material(params)
+            "create_particle_material":
+                create_particle_material(params)
             _:
                 log_error("Unknown operation: " + operation)
                 quit(1)
@@ -1660,6 +1666,177 @@ func instantiate_class(class_name: String) -> Node:
     if ClassDB.class_exists(class_name):
         return ClassDB.instantiate(class_name)
     return null
+
+func smart_set(obj, prop, value):
+    if value is Dictionary:
+        if value.has("x") and value.has("y"):
+            if value.has("z"):
+                obj.set(prop, Vector3(float(value.x), float(value.y), float(value.z)))
+            else:
+                obj.set(prop, Vector2(float(value.x), float(value.y)))
+        elif value.has("r") and value.has("g") and value.has("b"):
+            var a = value.a if value.has("a") else 1.0
+            obj.set(prop, Color(float(value.r), float(value.g), float(value.b), float(a)))
+        else:
+            obj.set(prop, value)
+    else:
+        obj.set(prop, value)
+
+# --- Particle System Tools ---
+
+# Create a particle system node
+func create_particle_system(params):
+    print("Creating particle system node: " + params.node_name + " of type: " + params.particle_type + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    # Find parent node
+    var parent_path = "root"
+    if params.has("parent_node_path"):
+        parent_path = params.parent_node_path
+    
+    var parent = scene_root
+    if parent_path != "root":
+        var path_to_find = parent_path
+        if path_to_find.begins_with("root/"):
+            path_to_find = path_to_find.substr(5)
+        parent = scene_root.get_node(path_to_find)
+        if not parent:
+            printerr("Parent node not found: " + parent_path)
+            quit(1)
+    
+    # Create particle node based on type
+    var particle_node = instantiate_class(params.particle_type)
+    if not particle_node:
+        printerr("Failed to instantiate particle type: " + params.particle_type)
+        quit(1)
+    
+    particle_node.name = params.node_name
+    
+    # Set properties
+    if params.has("amount"):
+        particle_node.amount = int(params.amount)
+    if params.has("lifetime"):
+        particle_node.lifetime = float(params.lifetime)
+    if params.has("one_shot"):
+        particle_node.one_shot = bool(params.one_shot)
+    if params.has("emitting"):
+        particle_node.emitting = bool(params.emitting)
+    
+    # For GPU particles, ensure they have a process material
+    if params.particle_type == "GPUParticles2D" or params.particle_type == "GPUParticles3D":
+        if particle_node.process_material == null:
+            particle_node.process_material = ParticleProcessMaterial.new()
+    
+    parent.add_child(particle_node)
+    particle_node.owner = scene_root
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Particle system '" + params.node_name + "' created successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Configure ParticleProcessMaterial
+func configure_particle_material(params):
+    print("Configuring particle material for node: " + params.node_path + " in scene: " + params.scene_path)
+    
+    var full_scene_path = params.scene_path
+    if not full_scene_path.begins_with("res://"):
+        full_scene_path = "res://" + full_scene_path
+    
+    var absolute_scene_path = ProjectSettings.globalize_path(full_scene_path)
+    if not FileAccess.file_exists(absolute_scene_path):
+        printerr("Scene file does not exist at: " + absolute_scene_path)
+        quit(1)
+    
+    var scene = load(full_scene_path)
+    if not scene:
+        printerr("Failed to load scene: " + full_scene_path)
+        quit(1)
+    
+    var scene_root = scene.instantiate()
+    
+    var node_path = params.node_path
+    if node_path.begins_with("root/"):
+        node_path = node_path.substr(5)
+    
+    var particle_node = scene_root.get_node(node_path)
+    if not particle_node:
+        printerr("Particle node not found: " + params.node_path)
+        quit(1)
+    
+    var material_settings = params.material
+    
+    if particle_node is GPUParticles2D or particle_node is GPUParticles3D:
+        var mat = particle_node.process_material
+        if mat == null or not (mat is ParticleProcessMaterial):
+            mat = ParticleProcessMaterial.new()
+            particle_node.process_material = mat
+        
+        for prop in material_settings:
+            smart_set(mat, prop, material_settings[prop])
+            
+    elif particle_node is CPUParticles2D or particle_node is CPUParticles3D:
+        # For CPU particles, settings are directly on the node
+        for prop in material_settings:
+            smart_set(particle_node, prop, material_settings[prop])
+    else:
+        printerr("Node is not a particle system: " + particle_node.get_class())
+        quit(1)
+    
+    var packed_scene = PackedScene.new()
+    var result = packed_scene.pack(scene_root)
+    if result == OK:
+        var error = ResourceSaver.save(packed_scene, absolute_scene_path)
+        if error == OK:
+            print("Particle material configured successfully")
+        else:
+            printerr("Failed to save scene: " + str(error))
+    else:
+        printerr("Failed to pack scene: " + str(result))
+
+# Create ParticleProcessMaterial resource
+func create_particle_material(params):
+    print("Creating ParticleProcessMaterial: " + params.material_path)
+    
+    var material_path = params.material_path
+    if not material_path.begins_with("res://"):
+        material_path = "res://" + material_path
+    
+    var absolute_path = ProjectSettings.globalize_path(material_path)
+    
+    var mat = ParticleProcessMaterial.new()
+    
+    if params.has("properties"):
+        var properties = params.properties
+        for prop in properties:
+            smart_set(mat, prop, properties[prop])
+    
+    var error = ResourceSaver.save(mat, absolute_path)
+    if error == OK:
+        print("ParticleProcessMaterial saved successfully to: " + material_path)
+    else:
+        printerr("Failed to save ParticleProcessMaterial: " + str(error))
 
 # --- Audio System Tools ---
 

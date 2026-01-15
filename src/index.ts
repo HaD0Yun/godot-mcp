@@ -90,6 +90,9 @@ class GodotServer {
     'send_to': 'sendTo',
     'layout_path': 'layoutPath',
     'effect_type': 'effectType',
+    'particle_type': 'particleType',
+    'one_shot': 'oneShot',
+    'material_path': 'materialPath',
   };
 
 
@@ -1318,6 +1321,62 @@ class GodotServer {
             required: ['projectPath'],
           },
         },
+        {
+          name: 'create_particle_system',
+          description: 'Create a GPUParticles2D, GPUParticles3D, CPUParticles2D, or CPUParticles3D',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              parentNodePath: { type: 'string', description: 'Path to parent node (e.g., "root" or "root/World")' },
+              particleType: {
+                type: 'string',
+                enum: ['GPUParticles2D', 'GPUParticles3D', 'CPUParticles2D', 'CPUParticles3D'],
+                description: 'Type of particle system to create',
+              },
+              nodeName: { type: 'string', description: 'Name for the particle system node' },
+              amount: { type: 'number', description: 'Number of particles (default: 8)' },
+              lifetime: { type: 'number', description: 'Particle lifetime in seconds (default: 1.0)' },
+              oneShot: { type: 'boolean', description: 'Emit once then stop (default: false)' },
+              emitting: { type: 'boolean', description: 'Whether the system is emitting (default: true)' },
+            },
+            required: ['projectPath', 'scenePath', 'parentNodePath', 'particleType', 'nodeName'],
+          },
+        },
+        {
+          name: 'configure_particle_material',
+          description: 'Configure ParticleProcessMaterial for a particle system',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              nodePath: { type: 'string', description: 'Path to the particle system node' },
+              material: {
+                type: 'object',
+                description: 'Material settings: emission_shape, direction, spread, gravity, initial_velocity, scale, color, etc.',
+              },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'material'],
+          },
+        },
+        {
+          name: 'create_particle_material',
+          description: 'Create a ParticleProcessMaterial resource file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              materialPath: { type: 'string', description: 'Output path for the material file (.tres)' },
+              properties: {
+                type: 'object',
+                description: 'Material properties (emission_shape, direction, etc.)',
+              },
+            },
+            required: ['projectPath', 'materialPath'],
+          },
+        },
       ],
     }));
     
@@ -1381,6 +1440,12 @@ class GodotServer {
           return await this.handleGetAudioBusInfo(request.params.arguments);
         case 'list_audio_buses':
           return await this.handleListAudioBuses(request.params.arguments);
+        case 'create_particle_system':
+          return await this.handleCreateParticleSystem(request.params.arguments);
+        case 'configure_particle_material':
+          return await this.handleConfigureParticleMaterial(request.params.arguments);
+        case 'create_particle_material':
+          return await this.handleCreateParticleMaterial(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -3187,6 +3252,66 @@ class GodotServer {
       return { content: [{ type: 'text', text: stdout.trim() }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to list audio buses: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle the create_particle_system tool
+   * @param args Tool arguments
+   */
+  private async handleCreateParticleSystem(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_particle_system', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create particle system: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create particle system: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle the configure_particle_material tool
+   * @param args Tool arguments
+   */
+  private async handleConfigureParticleMaterial(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('configure_particle_material', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to configure particle material: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to configure particle material: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Handle the create_particle_material tool
+   * @param args Tool arguments
+   */
+  private async handleCreateParticleMaterial(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath']);
+    }
+    try {
+      const { stdout, stderr } = await this.executeOperation('create_particle_material', args, args.projectPath);
+      if (stderr && (stderr.includes('Failed to') || stderr.includes('Error'))) {
+        return this.createErrorResponse(`Failed to create particle material: ${stderr}`);
+      }
+      return { content: [{ type: 'text', text: stdout.trim() }] };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to create particle material: ${error?.message || 'Unknown error'}`);
     }
   }
 
