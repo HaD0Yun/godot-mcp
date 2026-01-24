@@ -311,7 +311,45 @@ Get actionable insights about project structure, unused resources, and potential
 
 ## Installation and Configuration
 
-### Step 1: Install and Build
+### 🚀 One-Click Install (Recommended)
+
+**Linux / macOS**
+```bash
+curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install.sh | bash
+```
+
+This script will:
+- ✅ Check prerequisites (Git, Node.js 18+, npm)
+- ✅ Clone the repository to `~/.local/share/godot-mcp`
+- ✅ Install dependencies and build automatically
+- ✅ Auto-detect Godot installation
+- ✅ Show configuration instructions for your AI assistant
+
+**Advanced Options:**
+```bash
+# Custom installation directory
+curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install.sh | bash -s -- --dir ~/my-godot-mcp
+
+# Specify Godot path
+curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install.sh | bash -s -- --godot /usr/bin/godot4
+
+# Get configuration for specific AI assistant
+curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install.sh | bash -s -- --configure claude
+```
+
+**Available options:**
+| Option | Description |
+|--------|-------------|
+| `-d, --dir PATH` | Installation directory (default: `~/.local/share/godot-mcp`) |
+| `-g, --godot PATH` | Path to Godot executable |
+| `-c, --configure NAME` | Show config for: `claude`, `cursor`, `cline`, `opencode` |
+| `-h, --help` | Show help message |
+
+---
+
+### Manual Installation
+
+#### Step 1: Install and Build
 
 ```bash
 git clone https://github.com/HaD0Yun/godot-mcp.git
@@ -320,7 +358,7 @@ npm install
 npm run build
 ```
 
-### Step 2: Configure with Your AI Assistant
+#### Step 2: Configure with Your AI Assistant
 
 #### Option A: Configure with Cline (VS Code)
 
@@ -455,7 +493,15 @@ Once configured, you can use natural language to control Godot:
 
 #### Installation
 
-**Option 1: One-Click Install (Windows PowerShell)**
+**Option 1: One-Click Install**
+
+**Linux / macOS (Bash)**
+```bash
+# Run in your Godot project folder
+curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.sh | bash
+```
+
+**Windows (PowerShell)**
 ```powershell
 # Run in your Godot project folder
 irm https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.ps1 | iex
