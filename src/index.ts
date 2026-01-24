@@ -724,8 +724,10 @@ class GodotServer {
           description: 'Get the current debug output and errors',
           inputSchema: {
             type: 'object',
-            properties: {},
-            required: [],
+            properties: {
+              reason: { type: 'string', description: 'Brief explanation of why you are calling this tool' }
+            },
+            required: ['reason'],
           },
         },
         {
@@ -733,8 +735,10 @@ class GodotServer {
           description: 'Stop the currently running Godot project',
           inputSchema: {
             type: 'object',
-            properties: {},
-            required: [],
+            properties: {
+              reason: { type: 'string', description: 'Brief explanation of why you are calling this tool' }
+            },
+            required: ['reason'],
           },
         },
         {
@@ -742,8 +746,10 @@ class GodotServer {
           description: 'Get the installed Godot version',
           inputSchema: {
             type: 'object',
-            properties: {},
-            required: [],
+            properties: {
+              reason: { type: 'string', description: 'Brief explanation of why you are calling this tool' }
+            },
+            required: ['reason'],
           },
         },
         {
@@ -827,8 +833,8 @@ class GodotServer {
                 description: 'Name for the new node',
               },
               properties: {
-                type: 'object',
-                description: 'Optional properties to set on the node',
+                type: 'string',
+                description: 'Optional properties to set on the node (as JSON string)',
               },
             },
             required: ['projectPath', 'scenePath', 'nodeType', 'nodeName'],
@@ -1017,8 +1023,8 @@ class GodotServer {
                 description: 'Path to the node within the scene (e.g., "root/Player")',
               },
               properties: {
-                type: 'object',
-                description: 'Properties to set on the node (e.g., {"position": {"x": 100, "y": 200}})',
+                type: 'string',
+                description: 'Properties to set on the node (e.g., {"position": {"x": 100, "y": 200}}) (as JSON string)',
               },
               saveScene: {
                 type: 'boolean',
@@ -1176,8 +1182,8 @@ class GodotServer {
                 description: 'Path to the resource file (relative to project)',
               },
               options: {
-                type: 'object',
-                description: 'Import options to set (e.g., {"compress/mode": 1, "mipmaps/generate": true})',
+                type: 'string',
+                description: 'Import options to set (e.g., {"compress/mode": 1, "mipmaps/generate": true}) (as JSON string)',
               },
               reimport: {
                 type: 'boolean',
@@ -1403,7 +1409,8 @@ class GodotServer {
                 description: 'Setting path (e.g., "application/config/name")',
               },
               value: {
-                description: 'Value to set',
+                type: 'string',
+                description: 'Value to set (Godot handles type conversion)',
               },
             },
             required: ['projectPath', 'setting', 'value'],
@@ -1640,7 +1647,8 @@ class GodotServer {
                 description: 'Property name to set',
               },
               value: {
-                description: 'Value to set',
+                type: 'string',
+                description: 'Value to set (Godot handles type conversion)',
               },
             },
             required: ['projectPath', 'nodePath', 'property', 'value'],
@@ -1666,7 +1674,8 @@ class GodotServer {
               },
               args: {
                 type: 'array',
-                description: 'Arguments to pass to the method',
+                items: { type: 'string' },
+                description: 'Arguments to pass to the method (as JSON strings)',
               },
             },
             required: ['projectPath', 'nodePath', 'method'],
@@ -1713,8 +1722,8 @@ class GodotServer {
                 description: 'Class name of the resource (e.g., "Resource", "AudioStreamPlayer", "CurveTexture")',
               },
               properties: {
-                type: 'object',
-                description: 'Optional properties to set on the resource',
+                type: 'string',
+                description: 'Optional properties to set on the resource (as JSON string)',
               },
               script: {
                 type: 'string',
@@ -1744,8 +1753,8 @@ class GodotServer {
                 description: 'Type of material to create',
               },
               properties: {
-                type: 'object',
-                description: 'Optional properties to set on the material (e.g., albedo_color, metallic)',
+                type: 'string',
+                description: 'Optional properties to set on the material (e.g., albedo_color, metallic) (as JSON string)',
               },
               shader: {
                 type: 'string',
@@ -2013,11 +2022,13 @@ class GodotServer {
                           description: 'Time position in seconds',
                         },
                         value: {
+                          type: 'string',
                           description: 'Value at this keyframe (for property tracks)',
                         },
                         args: {
                           type: 'array',
-                          description: 'Arguments to pass to the method (for method tracks)',
+                          items: { type: 'string' },
+                          description: 'Arguments to pass to the method (for method tracks, as JSON strings)',
                         },
                       },
                       required: ['time'],
@@ -2671,7 +2682,7 @@ class GodotServer {
               scenePath: { type: 'string', description: 'Path to the scene file' },
               animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
               parameterPath: { type: 'string', description: 'Parameter path (e.g., "parameters/idle/active")' },
-              value: { type: ['number', 'boolean', 'string'], description: 'Parameter value' },
+              value: { type: 'string', description: 'Parameter value (number, boolean, or string - Godot handles type conversion)' },
             },
             required: ['projectPath', 'scenePath', 'animTreePath', 'parameterPath', 'value'],
           },
