@@ -2745,6 +2745,155 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'nodePath', 'themePath'],
           },
         },
+        // ==================== THEME BUILDER TOOLS ====================
+        {
+          name: 'fetch_polyhaven_asset',
+          description: 'Download 3D model or texture from Poly Haven by keyword search. Returns CC0-licensed assets.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              keyword: { type: 'string', description: 'Search term (e.g., "castle", "tree", "rock")' },
+              assetType: { 
+                type: 'string', 
+                enum: ['models', 'textures', 'hdris'],
+                description: 'Type of asset to fetch (default: models)' 
+              },
+              resolution: { 
+                type: 'string', 
+                enum: ['1k', '2k', '4k'],
+                description: 'Resolution for download (default: 2k)' 
+              },
+              targetFolder: { 
+                type: 'string', 
+                description: 'Target folder for download (default: downloaded_assets/polyhaven)' 
+              },
+              maxResults: {
+                type: 'number',
+                description: 'Maximum number of results to return (default: 5)'
+              },
+            },
+            required: ['projectPath', 'keyword'],
+          },
+        },
+        {
+          name: 'apply_theme_shader',
+          description: 'Generate and apply theme-appropriate shader to a material in a scene',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              scenePath: { type: 'string', description: 'Path to the scene file (relative to project)' },
+              nodePath: { type: 'string', description: 'Path to MeshInstance3D or Sprite node' },
+              theme: { 
+                type: 'string', 
+                enum: ['medieval', 'cyberpunk', 'nature', 'scifi', 'horror', 'cartoon'],
+                description: 'Visual theme to apply' 
+              },
+              effect: {
+                type: 'string',
+                enum: ['none', 'glow', 'hologram', 'wind_sway', 'torch_fire', 'dissolve', 'outline'],
+                description: 'Special effect to add (default: none)'
+              },
+              shaderParams: {
+                type: 'string',
+                description: 'Optional JSON string with custom shader parameters'
+              },
+            },
+            required: ['projectPath', 'scenePath', 'nodePath', 'theme'],
+          },
+        },
+        {
+          name: 'list_polyhaven_assets',
+          description: 'Search and list available assets from Poly Haven without downloading',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              keyword: { type: 'string', description: 'Search term' },
+              assetType: { 
+                type: 'string', 
+                enum: ['models', 'textures', 'hdris'],
+                description: 'Type of asset to search (default: models)' 
+              },
+              categories: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Filter by categories'
+              },
+              maxResults: {
+                type: 'number',
+                description: 'Maximum number of results (default: 10)'
+              },
+            },
+            required: ['keyword'],
+          },
+        },
+        // ==================== MULTI-SOURCE ASSET TOOLS ====================
+        {
+          name: 'search_assets',
+          description: 'Search for CC0 assets across multiple sources (Poly Haven, AmbientCG, Kenney). Returns results sorted by provider priority.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              keyword: { type: 'string', description: 'Search term (e.g., "chair", "rock", "tree")' },
+              assetType: { 
+                type: 'string', 
+                enum: ['models', 'textures', 'hdris', 'audio', '2d'],
+                description: 'Type of asset to search (optional, searches all if not specified)' 
+              },
+              maxResults: {
+                type: 'number',
+                description: 'Maximum number of results to return (default: 10)'
+              },
+              provider: {
+                type: 'string',
+                enum: ['all', 'polyhaven', 'ambientcg', 'kenney'],
+                description: 'Specific provider to search, or "all" for multi-source (default: all)'
+              },
+              mode: {
+                type: 'string',
+                enum: ['parallel', 'sequential'],
+                description: 'Search mode: "parallel" queries all providers, "sequential" stops at first with results (default: parallel)'
+              },
+            },
+            required: ['keyword'],
+          },
+        },
+        {
+          name: 'fetch_asset',
+          description: 'Download a CC0 asset from any supported source (Poly Haven, AmbientCG, Kenney) to your Godot project.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
+              assetId: { type: 'string', description: 'Asset ID from search results' },
+              provider: { 
+                type: 'string', 
+                enum: ['polyhaven', 'ambientcg', 'kenney'],
+                description: 'Source provider for the asset' 
+              },
+              resolution: { 
+                type: 'string', 
+                enum: ['1k', '2k', '4k'],
+                description: 'Resolution for download (default: 2k, only for PolyHaven/AmbientCG)' 
+              },
+              targetFolder: { 
+                type: 'string', 
+                description: 'Target folder for download (default: downloaded_assets/<provider>)' 
+              },
+            },
+            required: ['projectPath', 'assetId', 'provider'],
+          },
+        },
+        {
+          name: 'list_asset_providers',
+          description: 'List all available CC0 asset providers and their capabilities.',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -2946,6 +3095,18 @@ class GodotServer {
           return await this.handleSetThemeFontSize(request.params.arguments);
         case 'apply_theme_to_node':
           return await this.handleApplyThemeToNode(request.params.arguments);
+        case 'fetch_polyhaven_asset':
+          return await this.handleFetchPolyhavenAsset(request.params.arguments);
+        case 'apply_theme_shader':
+          return await this.handleApplyThemeShader(request.params.arguments);
+        case 'list_polyhaven_assets':
+          return await this.handleListPolyhavenAssets(request.params.arguments);
+        case 'search_assets':
+          return await this.handleSearchAssets(request.params.arguments);
+        case 'fetch_asset':
+          return await this.handleFetchAsset(request.params.arguments);
+        case 'list_asset_providers':
+          return await this.handleListAssetProviders();
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -7684,6 +7845,728 @@ class GodotServer {
       return { content: [{ type: 'text', text: `Theme applied to '${args.nodePath}'.\n\n${stdout.trim()}` }] };
     } catch (error: any) {
       return this.createErrorResponse(`Failed to apply theme to node: ${error?.message}`, []);
+    }
+  }
+
+  private async handleFetchPolyhavenAsset(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.keyword) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and keyword']);
+    }
+    if (!this.validatePath(args.projectPath)) {
+      return this.createErrorResponse('Invalid path', ['Provide a valid project path']);
+    }
+
+    try {
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, [
+          'Ensure the path contains a project.godot file',
+        ]);
+      }
+
+      const assetType = args.assetType || 'models';
+      const resolution = args.resolution || '2k';
+      const targetFolder = args.targetFolder || 'downloaded_assets/polyhaven';
+      const maxResults = args.maxResults || 5;
+
+      const searchUrl = `https://api.polyhaven.com/assets?t=${assetType}`;
+      const https = await import('https');
+      
+      const searchAssets = (): Promise<any> => {
+        return new Promise((resolve, reject) => {
+          https.get(searchUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (res: any) => {
+            let data = '';
+            res.on('data', (chunk: string) => data += chunk);
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', reject);
+        });
+      };
+
+      const allAssets = await searchAssets();
+      const keyword = args.keyword.toLowerCase();
+      
+      const matches: Array<{id: string; name: string; score: number; categories: string[]}> = [];
+      
+      for (const [assetId, assetData] of Object.entries(allAssets) as [string, any][]) {
+        let score = 0;
+        
+        if (assetId.toLowerCase().includes(keyword)) {
+          score += 100;
+        }
+        
+        if (assetData.name && assetData.name.toLowerCase().includes(keyword)) {
+          score += 80;
+        }
+        
+        if (assetData.tags) {
+          for (const tag of assetData.tags) {
+            if (tag.toLowerCase().includes(keyword)) {
+              score += 50;
+            }
+          }
+        }
+        
+        if (assetData.categories) {
+          for (const cat of assetData.categories) {
+            if (cat.toLowerCase().includes(keyword)) {
+              score += 30;
+            }
+          }
+        }
+        
+        if (score > 0) {
+          matches.push({
+            id: assetId,
+            name: assetData.name || assetId,
+            score,
+            categories: assetData.categories || [],
+          });
+        }
+      }
+      
+      matches.sort((a, b) => b.score - a.score);
+      const topMatches = matches.slice(0, maxResults);
+      
+      if (topMatches.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              message: `No assets found matching "${args.keyword}"`,
+              suggestions: [
+                'Try broader search terms',
+                'Check available categories at polyhaven.com',
+              ],
+            }, null, 2),
+          }],
+        };
+      }
+      
+      const bestMatch = topMatches[0];
+      
+      const getFileInfo = (assetId: string): Promise<any> => {
+        return new Promise((resolve, reject) => {
+          const fileUrl = `https://api.polyhaven.com/files/${assetId}`;
+          https.get(fileUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (res: any) => {
+            let data = '';
+            res.on('data', (chunk: string) => data += chunk);
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', reject);
+        });
+      };
+      
+      const fileInfo = await getFileInfo(bestMatch.id);
+      
+      let downloadUrl = '';
+      let fileExtension = '.glb';
+      
+      if (assetType === 'models') {
+        if (fileInfo.gltf && fileInfo.gltf[resolution]) {
+          downloadUrl = fileInfo.gltf[resolution].gltf?.url || '';
+        } else if (fileInfo.gltf) {
+          const availableRes = Object.keys(fileInfo.gltf)[0];
+          downloadUrl = fileInfo.gltf[availableRes]?.gltf?.url || '';
+        }
+      } else if (assetType === 'textures') {
+        fileExtension = '.png';
+        if (fileInfo.Diffuse && fileInfo.Diffuse[resolution]) {
+          downloadUrl = fileInfo.Diffuse[resolution].png?.url || '';
+        }
+      } else if (assetType === 'hdris') {
+        fileExtension = '.hdr';
+        if (fileInfo.hdri && fileInfo.hdri[resolution]) {
+          downloadUrl = fileInfo.hdri[resolution].hdr?.url || '';
+        }
+      }
+      
+      if (!downloadUrl) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              message: `Asset "${bestMatch.id}" found but download URL not available for ${assetType}/${resolution}`,
+              asset: bestMatch,
+              availableFormats: Object.keys(fileInfo),
+            }, null, 2),
+          }],
+        };
+      }
+      
+      const targetDir = join(args.projectPath, targetFolder);
+      if (!existsSync(targetDir)) {
+        mkdirSync(targetDir, { recursive: true });
+      }
+      
+      const fileName = `${bestMatch.id}${fileExtension}`;
+      const filePath = join(targetDir, fileName);
+      const fs = await import('fs');
+      
+      await new Promise<void>((resolve, reject) => {
+        const file = fs.createWriteStream(filePath);
+        https.get(downloadUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (response: any) => {
+          if (response.statusCode === 302 || response.statusCode === 301) {
+            https.get(response.headers.location, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (redirectRes: any) => {
+              redirectRes.pipe(file);
+              file.on('finish', () => {
+                file.close();
+                resolve();
+              });
+            }).on('error', reject);
+          } else {
+            response.pipe(file);
+            file.on('finish', () => {
+              file.close();
+              resolve();
+            });
+          }
+        }).on('error', reject);
+      });
+      
+      const creditsPath = join(targetDir, 'CREDITS.md');
+      const creditEntry = `\n## ${bestMatch.id}\n- Source: [Poly Haven](https://polyhaven.com/a/${bestMatch.id})\n- License: CC0 (Public Domain)\n- Downloaded: ${new Date().toISOString()}\n`;
+      
+      if (existsSync(creditsPath)) {
+        fs.appendFileSync(creditsPath, creditEntry);
+      } else {
+        fs.writeFileSync(creditsPath, `# Asset Credits\n\nAssets downloaded from Poly Haven (CC0 License)\n${creditEntry}`);
+      }
+      
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            asset: {
+              id: bestMatch.id,
+              name: bestMatch.name,
+              categories: bestMatch.categories,
+            },
+            downloadedTo: `res://${targetFolder}/${fileName}`,
+            license: 'CC0',
+            attribution: `Asset from Poly Haven: https://polyhaven.com/a/${bestMatch.id}`,
+            otherMatches: topMatches.slice(1).map(m => ({ id: m.id, name: m.name })),
+          }, null, 2),
+        }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to fetch Poly Haven asset: ${error?.message}`, [
+        'Check internet connection',
+        'Verify the keyword is valid',
+        'Try a different search term',
+      ]);
+    }
+  }
+
+  private async handleApplyThemeShader(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.scenePath || !args.nodePath || !args.theme) {
+      return this.createErrorResponse('Missing required parameters', [
+        'Provide projectPath, scenePath, nodePath, and theme',
+      ]);
+    }
+
+    try {
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, []);
+      }
+
+      const shaderTemplates: Record<string, { code: string; description: string }> = {
+        medieval: {
+          description: 'Warm stone/aged material look',
+          code: `shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+
+uniform sampler2D albedo_texture : source_color, filter_linear_mipmap;
+uniform float roughness : hint_range(0.0, 1.0) = 0.85;
+uniform float age_factor : hint_range(0.0, 1.0) = 0.3;
+uniform vec3 tint_color : source_color = vec3(0.9, 0.85, 0.75);
+
+void fragment() {
+    vec4 albedo = texture(albedo_texture, UV);
+    vec3 aged = mix(albedo.rgb, albedo.rgb * tint_color, age_factor);
+    ALBEDO = aged;
+    ROUGHNESS = roughness;
+    SPECULAR = 0.2;
+    METALLIC = 0.0;
+}`,
+        },
+        cyberpunk: {
+          description: 'Neon glow with pulsing effect',
+          code: `shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back;
+
+uniform vec3 neon_color : source_color = vec3(1.0, 0.0, 0.8);
+uniform float pulse_speed : hint_range(0.0, 10.0) = 2.0;
+uniform float intensity : hint_range(0.0, 5.0) = 2.5;
+uniform float base_brightness : hint_range(0.0, 1.0) = 0.3;
+
+void fragment() {
+    float pulse = sin(TIME * pulse_speed) * 0.5 + 0.5;
+    vec3 emissive = neon_color * intensity * (0.5 + pulse * 0.5);
+    
+    ALBEDO = neon_color * base_brightness;
+    EMISSION = emissive;
+    METALLIC = 0.8;
+    ROUGHNESS = 0.2;
+}`,
+        },
+        nature: {
+          description: 'Wind sway for foliage',
+          code: `shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_disabled;
+
+uniform sampler2D albedo_texture : source_color, filter_linear_mipmap;
+uniform float wind_strength : hint_range(0.0, 2.0) = 0.3;
+uniform float wind_speed : hint_range(0.0, 5.0) = 1.5;
+uniform float wind_scale : hint_range(0.1, 10.0) = 1.0;
+
+void vertex() {
+    float wind = sin(TIME * wind_speed + VERTEX.x * wind_scale + VERTEX.z * wind_scale * 0.7);
+    float height_factor = UV.y;
+    VERTEX.x += wind * wind_strength * height_factor;
+    VERTEX.z += wind * wind_strength * height_factor * 0.5;
+}
+
+void fragment() {
+    vec4 albedo = texture(albedo_texture, UV);
+    ALBEDO = albedo.rgb;
+    ALPHA = albedo.a;
+    ALPHA_SCISSOR_THRESHOLD = 0.5;
+    ROUGHNESS = 0.8;
+}`,
+        },
+        scifi: {
+          description: 'Clean metallic with LED accents',
+          code: `shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back;
+
+uniform sampler2D albedo_texture : source_color, filter_linear_mipmap;
+uniform vec3 led_color : source_color = vec3(0.0, 0.8, 1.0);
+uniform float led_intensity : hint_range(0.0, 3.0) = 1.5;
+uniform float metallic_value : hint_range(0.0, 1.0) = 0.9;
+
+void fragment() {
+    vec4 albedo = texture(albedo_texture, UV);
+    float led_mask = step(0.9, albedo.r) * step(0.9, albedo.g) * step(0.9, albedo.b);
+    
+    ALBEDO = mix(albedo.rgb, albedo.rgb * 0.3, led_mask);
+    EMISSION = led_color * led_intensity * led_mask;
+    METALLIC = metallic_value;
+    ROUGHNESS = mix(0.3, 0.1, led_mask);
+}`,
+        },
+        horror: {
+          description: 'Dark with subtle pulsing shadows',
+          code: `shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back;
+
+uniform sampler2D albedo_texture : source_color, filter_linear_mipmap;
+uniform float darkness : hint_range(0.0, 1.0) = 0.6;
+uniform float pulse_speed : hint_range(0.0, 5.0) = 0.5;
+uniform vec3 shadow_tint : source_color = vec3(0.1, 0.0, 0.15);
+
+void fragment() {
+    float pulse = sin(TIME * pulse_speed) * 0.1 + 0.9;
+    vec4 albedo = texture(albedo_texture, UV);
+    vec3 darkened = mix(albedo.rgb, shadow_tint, darkness);
+    
+    ALBEDO = darkened * pulse;
+    ROUGHNESS = 0.9;
+    METALLIC = 0.0;
+}`,
+        },
+        cartoon: {
+          description: 'Cel-shaded toon look',
+          code: `shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back;
+
+uniform sampler2D albedo_texture : source_color, filter_linear_mipmap;
+uniform vec3 outline_color : source_color = vec3(0.0, 0.0, 0.0);
+uniform float shade_levels : hint_range(2.0, 8.0) = 3.0;
+
+void fragment() {
+    vec4 albedo = texture(albedo_texture, UV);
+    ALBEDO = albedo.rgb;
+    ROUGHNESS = 1.0;
+    SPECULAR = 0.0;
+}
+
+void light() {
+    float NdotL = dot(NORMAL, LIGHT);
+    float stepped = floor(NdotL * shade_levels) / shade_levels;
+    DIFFUSE_LIGHT += stepped * ATTENUATION * LIGHT_COLOR;
+}`,
+        },
+      };
+
+      const effectTemplates: Record<string, string> = {
+        glow: `
+uniform float glow_power : hint_range(0.0, 5.0) = 1.5;
+// Add to fragment(): EMISSION += ALBEDO * glow_power;`,
+        hologram: `
+uniform float scan_speed : hint_range(0.0, 10.0) = 2.0;
+uniform float scan_lines : hint_range(10.0, 100.0) = 50.0;
+// Add to fragment(): 
+// float scan = sin(UV.y * scan_lines + TIME * scan_speed) * 0.5 + 0.5;
+// ALPHA = 0.7 * scan;`,
+        dissolve: `
+uniform sampler2D noise_texture : filter_linear;
+uniform float dissolve_amount : hint_range(0.0, 1.0) = 0.0;
+// Add to fragment():
+// float noise = texture(noise_texture, UV).r;
+// if (noise < dissolve_amount) discard;`,
+      };
+
+      const theme = args.theme as string;
+      const effect = args.effect || 'none';
+      
+      if (!shaderTemplates[theme]) {
+        return this.createErrorResponse(`Unknown theme: ${theme}`, [
+          `Available themes: ${Object.keys(shaderTemplates).join(', ')}`,
+        ]);
+      }
+
+      const template = shaderTemplates[theme];
+      let shaderCode = template.code;
+      
+      if (effect !== 'none' && effectTemplates[effect]) {
+        shaderCode += `\n// Effect: ${effect}\n${effectTemplates[effect]}`;
+      }
+
+      if (args.shaderParams) {
+        try {
+          const customParams = JSON.parse(args.shaderParams);
+          for (const [key, value] of Object.entries(customParams)) {
+            const regex = new RegExp(`(uniform[^;]*${key}[^=]*=\\s*)([^;]+)`, 'g');
+            shaderCode = shaderCode.replace(regex, `$1${value}`);
+          }
+        } catch (e) {
+          this.logDebug(`Failed to parse custom shader params: ${e}`);
+        }
+      }
+
+      const shaderDir = join(args.projectPath, 'shaders');
+      if (!existsSync(shaderDir)) {
+        mkdirSync(shaderDir, { recursive: true });
+      }
+
+      const shaderFileName = `theme_${theme}${effect !== 'none' ? '_' + effect : ''}.gdshader`;
+      const shaderPath = join(shaderDir, shaderFileName);
+      
+      const fs = await import('fs');
+      fs.writeFileSync(shaderPath, shaderCode);
+
+      const params = {
+        scenePath: args.scenePath,
+        nodePath: args.nodePath,
+        shaderPath: `shaders/${shaderFileName}`,
+      };
+
+      const { stdout, stderr } = await this.executeOperation('apply_shader_to_node', params, args.projectPath);
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            theme,
+            effect,
+            description: template.description,
+            shaderPath: `res://shaders/${shaderFileName}`,
+            appliedTo: args.nodePath,
+            output: stdout.trim(),
+          }, null, 2),
+        }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to apply theme shader: ${error?.message}`, [
+        'Ensure the node path is valid',
+        'Check that the scene exists',
+      ]);
+    }
+  }
+
+  private async handleListPolyhavenAssets(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.keyword) {
+      return this.createErrorResponse('Missing required parameter: keyword', []);
+    }
+
+    try {
+      const assetType = args.assetType || 'models';
+      const maxResults = args.maxResults || 10;
+      
+      const searchUrl = `https://api.polyhaven.com/assets?t=${assetType}`;
+      const https = await import('https');
+      
+      const searchAssets = (): Promise<any> => {
+        return new Promise((resolve, reject) => {
+          https.get(searchUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (res: any) => {
+            let data = '';
+            res.on('data', (chunk: string) => data += chunk);
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', reject);
+        });
+      };
+
+      const allAssets = await searchAssets();
+      const keyword = args.keyword.toLowerCase();
+      const categoryFilter = args.categories || [];
+      
+      const matches: Array<{
+        id: string;
+        name: string;
+        score: number;
+        categories: string[];
+        tags: string[];
+      }> = [];
+      
+      for (const [assetId, assetData] of Object.entries(allAssets) as [string, any][]) {
+        let score = 0;
+        
+        if (assetId.toLowerCase().includes(keyword)) {
+          score += 100;
+        }
+        
+        if (assetData.name && assetData.name.toLowerCase().includes(keyword)) {
+          score += 80;
+        }
+        
+        if (assetData.tags) {
+          for (const tag of assetData.tags) {
+            if (tag.toLowerCase().includes(keyword)) {
+              score += 50;
+            }
+          }
+        }
+        
+        if (assetData.categories) {
+          for (const cat of assetData.categories) {
+            if (cat.toLowerCase().includes(keyword)) {
+              score += 30;
+            }
+          }
+          
+          if (categoryFilter.length > 0) {
+            const hasCategory = categoryFilter.some((f: string) => 
+              assetData.categories.some((c: string) => c.toLowerCase().includes(f.toLowerCase()))
+            );
+            if (!hasCategory) {
+              continue;
+            }
+          }
+        }
+        
+        if (score > 0) {
+          matches.push({
+            id: assetId,
+            name: assetData.name || assetId,
+            score,
+            categories: assetData.categories || [],
+            tags: assetData.tags || [],
+          });
+        }
+      }
+      
+      matches.sort((a, b) => b.score - a.score);
+      const results = matches.slice(0, maxResults);
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            query: args.keyword,
+            assetType,
+            totalMatches: matches.length,
+            results: results.map(r => ({
+              id: r.id,
+              name: r.name,
+              categories: r.categories,
+              tags: r.tags.slice(0, 5),
+              previewUrl: `https://cdn.polyhaven.com/asset_img/thumbs/${r.id}.png`,
+              downloadCommand: `fetch_polyhaven_asset(projectPath, keyword="${r.id}")`,
+            })),
+          }, null, 2),
+        }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to list Poly Haven assets: ${error?.message}`, [
+        'Check internet connection',
+        'Try again later',
+      ]);
+    }
+  }
+
+  private async handleSearchAssets(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.keyword) {
+      return this.createErrorResponse('Missing required parameter: keyword', []);
+    }
+
+    try {
+      const { assetManager } = await import('./providers/index.js');
+      
+      const searchOptions = {
+        keyword: args.keyword,
+        assetType: args.assetType,
+        maxResults: args.maxResults || 10,
+      };
+
+      let results;
+      const providerFilter = args.provider || 'all';
+      const mode = args.mode || 'parallel';
+
+      if (providerFilter !== 'all') {
+        results = await assetManager.searchProvider(providerFilter, searchOptions);
+      } else if (mode === 'sequential') {
+        results = await assetManager.searchSequential(searchOptions);
+      } else {
+        results = await assetManager.searchAll(searchOptions);
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            query: args.keyword,
+            mode,
+            provider: providerFilter,
+            totalResults: results.length,
+            results: results.map(r => ({
+              id: r.id,
+              name: r.name,
+              provider: r.provider,
+              assetType: r.assetType,
+              categories: r.categories,
+              tags: r.tags.slice(0, 5),
+              license: r.license,
+              previewUrl: r.previewUrl,
+              downloadCommand: `fetch_asset(projectPath, assetId="${r.id}", provider="${r.provider}")`,
+            })),
+          }, null, 2),
+        }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to search assets: ${error?.message}`, [
+        'Check internet connection',
+        'Try a different keyword',
+      ]);
+    }
+  }
+
+  private async handleFetchAsset(args: any) {
+    args = this.normalizeParameters(args);
+    if (!args.projectPath || !args.assetId || !args.provider) {
+      return this.createErrorResponse('Missing required parameters', [
+        'Provide projectPath, assetId, and provider',
+      ]);
+    }
+
+    if (!this.validatePath(args.projectPath)) {
+      return this.createErrorResponse('Invalid path', ['Provide a valid project path']);
+    }
+
+    try {
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, [
+          'Ensure the path contains a project.godot file',
+        ]);
+      }
+
+      const { assetManager } = await import('./providers/index.js');
+
+      const result = await assetManager.download({
+        assetId: args.assetId,
+        projectPath: args.projectPath,
+        provider: args.provider,
+        resolution: args.resolution || '2k',
+        targetFolder: args.targetFolder,
+      });
+
+      if (result.success) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              asset: {
+                id: result.assetId,
+                provider: result.provider,
+              },
+              downloadedTo: `res://${result.localPath}`,
+              license: result.license,
+              attribution: result.attribution,
+              sourceUrl: result.sourceUrl,
+            }, null, 2),
+          }],
+        };
+      } else {
+        return this.createErrorResponse(`Failed to download asset: ${args.assetId}`, [
+          'Check that the asset ID is correct',
+          'Verify the provider name',
+          'Try a different asset',
+        ]);
+      }
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to fetch asset: ${error?.message}`, [
+        'Check internet connection',
+        'Verify the asset ID and provider',
+      ]);
+    }
+  }
+
+  private async handleListAssetProviders() {
+    try {
+      const { assetManager } = await import('./providers/index.js');
+      const providers = assetManager.getProviderInfo();
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            providers: providers.map(p => ({
+              name: p.name,
+              displayName: p.displayName,
+              priority: p.priority,
+              supportedTypes: p.types,
+              license: 'CC0',
+              requiresAuth: false,
+            })),
+            usage: {
+              search: 'search_assets(keyword="chair", assetType="models")',
+              download: 'fetch_asset(projectPath, assetId="asset_id", provider="polyhaven")',
+            },
+          }, null, 2),
+        }],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to list providers: ${error?.message}`, []);
     }
   }
 }
