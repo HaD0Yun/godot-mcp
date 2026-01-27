@@ -70,7 +70,7 @@ Traditional AI assistants can write GDScript, but they're essentially working bl
 - **Context-Aware Assistance**: The AI can inspect your actual scene tree, understand your node hierarchy, and provide suggestions based on your real project structure
 - **Validation Before Suggesting**: Before suggesting you use a resource, the AI can verify it exists in your project
 
-#### 2. **88 Tools Covering 75%+ of Godot's Capabilities**
+#### 2. **90+ Tools Covering 75%+ of Godot's Capabilities**
 
 | Category | What You Can Do | Tools |
 |----------|-----------------|-------|
@@ -89,6 +89,7 @@ Traditional AI assistants can write GDScript, but they're essentially working bl
 | **Navigation** | AI pathfinding setup | `create_navigation_region`, `create_navigation_agent`, `configure_navigation_layers` |
 | **Rendering** | Environment and lighting setup | `create_environment`, `create_world_environment`, `create_light`, `create_camera` |
 | **UI/Themes** | Create and apply custom themes | `create_theme`, `set_theme_color`, `set_theme_font_size`, `apply_theme_to_node` |
+| **Asset Library** | Search and download CC0 assets from multiple sources | `search_assets`, `fetch_asset`, `list_asset_providers` |
 | **Auto Reload** | Instant editor refresh on external changes | Built-in Editor Plugin |
 
 #### 3. **Seamless Editor Integration with Auto Reload**
@@ -299,6 +300,20 @@ Get actionable insights about project structure, unused resources, and potential
 - Get UID for specific files
 - Update UID references by resaving resources
 
+### Multi-Source Asset Library (CC0)
+- **Unified Search**: Search for 3D models, textures, HDRIs across multiple CC0 asset providers
+- **Automatic Download**: Fetch assets directly into your Godot project
+- **Provider Priority**: Searches Poly Haven → AmbientCG → Kenney in order
+- **Attribution Tracking**: Automatic CREDITS.md generation for proper attribution
+
+**Supported Providers:**
+
+| Provider | Asset Types | License |
+|----------|-------------|---------|
+| [Poly Haven](https://polyhaven.com) | Models, Textures, HDRIs | CC0 |
+| [AmbientCG](https://ambientcg.com) | Textures, Models, HDRIs | CC0 |
+| [Kenney](https://kenney.nl) | Models, Textures, 2D, Audio | CC0 |
+
 ---
 
 ## Requirements
@@ -481,6 +496,14 @@ Once configured, you can use natural language to control Godot:
 "Run my project and show me any errors"
 "Parse my Godot error log and suggest fixes"
 "Inspect the scene tree of my running game"
+```
+
+### Asset Library
+```
+"Search for a chair model across all asset sources"
+"Find rock textures from AmbientCG"
+"Download the nature-kit asset pack from Kenney"
+"List all available asset providers"
 ```
 
 ---
@@ -670,6 +693,13 @@ For live debugging features, install the runtime addon:
 | `get_uid` | Get file UID (Godot 4.4+) |
 | `update_project_uids` | Regenerate UIDs |
 
+### Asset Library Tools (3)
+| Tool | Description |
+|------|-------------|
+| `search_assets` | Search CC0 assets across Poly Haven, AmbientCG, and Kenney |
+| `fetch_asset` | Download asset to your Godot project |
+| `list_asset_providers` | List available providers and their capabilities |
+
 ---
 
 ## Architecture
@@ -714,11 +744,12 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Stats
 
-- **60+ Tools** covering scene management, scripting, resources, animation, configuration, and debugging
+- **90+ Tools** covering scene management, scripting, resources, animation, configuration, debugging, and asset management
 - **12,000+ lines** of TypeScript and GDScript
 - **~75% coverage** of Godot Engine's capabilities
 - **Godot 4.x** full support (including 4.4+ UID features)
 - **Auto Reload** plugin for seamless MCP integration
+- **Multi-Source Asset Library** with CC0 assets from Poly Haven, AmbientCG, and Kenney
 
 ---
 
