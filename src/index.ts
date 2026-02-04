@@ -689,13 +689,13 @@ class GodotServer {
       tools: [
         {
           name: 'launch_editor',
-          description: 'Launch Godot editor for a specific project',
+          description: 'Opens the Godot editor GUI for a project. Use when visual inspection or manual editing of scenes/scripts is needed. Opens a new window on the host system. Requires: project directory with project.godot file.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
             },
             required: ['projectPath'],
@@ -703,17 +703,17 @@ class GodotServer {
         },
         {
           name: 'run_project',
-          description: 'Run the Godot project and capture output',
+          description: 'Launches a Godot project in a new window and captures output. Use to test gameplay or verify script behavior. Runs until stop_project is called. Use get_debug_output to retrieve logs.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scene: {
                 type: 'string',
-                description: 'Optional: Specific scene to run',
+                description: 'Optional: specific scene to run (e.g., "scenes/TestLevel.tscn"). If omitted, runs main scene from project settings.',
               },
             },
             required: ['projectPath'],
@@ -721,7 +721,7 @@ class GodotServer {
         },
         {
           name: 'get_debug_output',
-          description: 'Get the current debug output and errors',
+          description: 'Retrieves console output and errors from the currently running Godot project. Use after run_project to check logs, errors, and print statements. Returns empty if no project is running.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -732,7 +732,7 @@ class GodotServer {
         },
         {
           name: 'stop_project',
-          description: 'Stop the currently running Godot project',
+          description: 'Terminates the currently running Godot project process. Use to stop a project started with run_project. No effect if no project is running.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -743,7 +743,7 @@ class GodotServer {
         },
         {
           name: 'get_godot_version',
-          description: 'Get the installed Godot version',
+          description: 'Returns the installed Godot engine version string. Use to check compatibility (e.g., Godot 4.4+ features like UID). Returns version like "4.3.stable" or "4.4.dev".',
           inputSchema: {
             type: 'object',
             properties: {
@@ -754,17 +754,17 @@ class GodotServer {
         },
         {
           name: 'list_projects',
-          description: 'List Godot projects in a directory',
+          description: 'Scans a directory for Godot projects (folders containing project.godot). Use to discover projects before using other tools. Returns array of {path, name}.',
           inputSchema: {
             type: 'object',
             properties: {
               directory: {
                 type: 'string',
-                description: 'Directory to search for Godot projects',
+                description: 'Absolute path to search (e.g., "/home/user/godot-projects" on Linux, "C:\\Games" on Windows)',
               },
               recursive: {
                 type: 'boolean',
-                description: 'Whether to search recursively (default: false)',
+                description: 'If true, searches all subdirectories. If false (default), only checks immediate children.',
               },
             },
             required: ['directory'],
@@ -772,13 +772,13 @@ class GodotServer {
         },
         {
           name: 'get_project_info',
-          description: 'Retrieve metadata about a Godot project',
+          description: 'Returns metadata about a Godot project including name, version, main scene, autoloads, and directory structure. Use to understand project before modifying. Requires valid project.godot.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
             },
             required: ['projectPath'],
@@ -786,21 +786,21 @@ class GodotServer {
         },
         {
           name: 'create_scene',
-          description: 'Create a new Godot scene file',
+          description: 'Creates a new Godot scene file (.tscn) with a specified root node type. Use to start building new game levels, UI screens, or reusable components. The scene is saved automatically after creation.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path where the scene file will be saved (relative to project)',
+                description: 'Path for new scene file relative to project (e.g., "scenes/Player.tscn", "levels/Level1.tscn")',
               },
               rootNodeType: {
                 type: 'string',
-                description: 'Type of the root node (e.g., Node2D, Node3D)',
+                description: 'Godot node class for root (e.g., "Node2D" for 2D games, "Node3D" for 3D, "Control" for UI). Default: "Node"',
               },
             },
             required: ['projectPath', 'scenePath'],
@@ -808,29 +808,29 @@ class GodotServer {
         },
         {
           name: 'add_node',
-          description: 'Add a node to an existing scene',
+          description: 'Adds a new node to an existing scene file. Use to programmatically build scene hierarchies. The scene is saved automatically after modification. Use list_scene_nodes first to see current structure.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               parentNodePath: {
                 type: 'string',
-                description: 'Path to the parent node (e.g., "root" or "root/Player")',
+                description: 'Node path within scene (e.g., "." for root, "Player" for direct child, "Player/Sprite2D" for nested)',
               },
               nodeType: {
                 type: 'string',
-                description: 'Type of node to add (e.g., Sprite2D, CollisionShape2D)',
+                description: 'Godot node class name (e.g., "Sprite2D", "CollisionShape2D", "CharacterBody2D"). Must be valid Godot 4 class.',
               },
               nodeName: {
                 type: 'string',
-                description: 'Name for the new node',
+                description: 'Name for the new node (will be unique identifier in scene tree)',
               },
               properties: {
                 type: 'string',
@@ -842,76 +842,47 @@ class GodotServer {
         },
         {
           name: 'load_sprite',
-          description: 'Load a sprite into a Sprite2D node',
+          description: 'Assigns a texture to a Sprite2D node in a scene. Use to set character sprites, backgrounds, or UI images. The texture file must exist in the project.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               nodePath: {
                 type: 'string',
-                description: 'Path to the Sprite2D node (e.g., "root/Player/Sprite2D")',
+                description: 'Path to Sprite2D node in scene (e.g., ".", "Player/Sprite2D")',
               },
               texturePath: {
                 type: 'string',
-                description: 'Path to the texture file (relative to project)',
+                description: 'Path to texture file relative to project (e.g., "assets/player.png", "sprites/enemy.svg")',
               },
             },
             required: ['projectPath', 'scenePath', 'nodePath', 'texturePath'],
           },
         },
         {
-          name: 'export_mesh_library',
-          description: 'Export a scene as a MeshLibrary resource',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: {
-                type: 'string',
-                description: 'Path to the Godot project directory',
-              },
-              scenePath: {
-                type: 'string',
-                description: 'Path to the scene file (.tscn) to export',
-              },
-              outputPath: {
-                type: 'string',
-                description: 'Path where the mesh library (.res) will be saved',
-              },
-              meshItemNames: {
-                type: 'array',
-                items: {
-                  type: 'string',
-                },
-                description: 'Optional: Names of specific mesh items to include (defaults to all)',
-              },
-            },
-            required: ['projectPath', 'scenePath', 'outputPath'],
-          },
-        },
-        {
           name: 'save_scene',
-          description: 'Save changes to a scene file',
+          description: 'Saves changes to a scene file or creates a variant at a new path. Most scene modification tools save automatically, but use this for explicit saves or creating variants.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               newPath: {
                 type: 'string',
-                description: 'Optional: New path to save the scene to (for creating variants)',
+                description: 'Optional: New path to save as variant (e.g., "scenes/PlayerBlue.tscn")',
               },
             },
             required: ['projectPath', 'scenePath'],
@@ -954,25 +925,25 @@ class GodotServer {
         // ============================================
         {
           name: 'list_scene_nodes',
-          description: 'Get complete scene tree structure with all nodes, types, and hierarchy',
+          description: 'Returns complete scene tree structure with all nodes, types, and hierarchy. Use to understand scene organization before modifying. Returns nested tree with node paths.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               depth: {
                 type: 'number',
-                description: 'Maximum depth to traverse (-1 for all, default: -1)',
+                description: 'Maximum depth to traverse. -1 = all (default), 0 = root only, 1 = root + children',
               },
               includeProperties: {
                 type: 'boolean',
-                description: 'Include node properties in output (default: false)',
+                description: 'If true, includes all node properties. If false (default), only names and types.',
               },
             },
             required: ['projectPath', 'scenePath'],
@@ -980,25 +951,25 @@ class GodotServer {
         },
         {
           name: 'get_node_properties',
-          description: 'Get all properties of a specific node in a scene',
+          description: 'Returns all properties of a specific node in a scene. Use to inspect current values before modifying. Returns property names, values, and types.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               nodePath: {
                 type: 'string',
-                description: 'Path to the node within the scene (e.g., "root/Player/Sprite2D")',
+                description: 'Path to node within scene (e.g., ".", "Player", "Player/Sprite2D")',
               },
               includeDefaults: {
                 type: 'boolean',
-                description: 'Include properties with default values (default: false)',
+                description: 'If true, includes properties with default values. If false (default), only modified properties.',
               },
             },
             required: ['projectPath', 'scenePath', 'nodePath'],
@@ -1006,29 +977,29 @@ class GodotServer {
         },
         {
           name: 'set_node_properties',
-          description: 'Set multiple properties on a node in a scene',
+          description: 'Sets multiple properties on a node in a scene. Prerequisite: scene and node must exist (use create_scene and add_node first). Use to modify position, scale, rotation, or any node-specific properties. Scene is saved automatically unless saveScene=false.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               nodePath: {
                 type: 'string',
-                description: 'Path to the node within the scene (e.g., "root/Player")',
+                description: 'Path to node within scene (e.g., ".", "Player", "Player/Sprite2D")',
               },
               properties: {
                 type: 'string',
-                description: 'Properties to set on the node (e.g., {"position": {"x": 100, "y": 200}}) (as JSON string)',
+                description: 'JSON object of properties to set (e.g., {"position": {"x": 100, "y": 200}, "scale": {"x": 2, "y": 2}})',
               },
               saveScene: {
                 type: 'boolean',
-                description: 'Save the scene after modification (default: true)',
+                description: 'If true (default), saves scene after modification. Set false for batch operations.',
               },
             },
             required: ['projectPath', 'scenePath', 'nodePath', 'properties'],
@@ -1036,25 +1007,25 @@ class GodotServer {
         },
         {
           name: 'delete_node',
-          description: 'Delete a node from a scene',
+          description: 'Removes a node and all its children from a scene. Use to clean up unused nodes. Cannot delete root node. Scene is saved automatically unless saveScene=false.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               nodePath: {
                 type: 'string',
-                description: 'Path to the node to delete (e.g., "root/Player/OldSprite")',
+                description: 'Path to node to delete (e.g., "Player/OldSprite", "Enemies/Enemy1")',
               },
               saveScene: {
                 type: 'boolean',
-                description: 'Save the scene after deletion (default: true)',
+                description: 'If true (default), saves scene after deletion. Set false for batch operations.',
               },
             },
             required: ['projectPath', 'scenePath', 'nodePath'],
@@ -1062,33 +1033,33 @@ class GodotServer {
         },
         {
           name: 'duplicate_node',
-          description: 'Duplicate a node within a scene',
+          description: 'Creates a copy of a node with all its properties and children. Use to replicate enemies, UI elements, or any repeated structures. Scene is saved automatically unless saveScene=false.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Level.tscn")',
               },
               nodePath: {
                 type: 'string',
-                description: 'Path to the node to duplicate (e.g., "root/Enemy")',
+                description: 'Path to node to duplicate (e.g., "Enemies/Enemy", "UI/Button")',
               },
               newName: {
                 type: 'string',
-                description: 'Name for the duplicated node',
+                description: 'Name for the new duplicated node (e.g., "Enemy2", "ButtonCopy")',
               },
               parentPath: {
                 type: 'string',
-                description: 'Optional: Path to a different parent node (default: same parent)',
+                description: 'Optional: Different parent path. If omitted, uses same parent as original.',
               },
               saveScene: {
                 type: 'boolean',
-                description: 'Save the scene after duplication (default: true)',
+                description: 'If true (default), saves scene after duplication. Set false for batch operations.',
               },
             },
             required: ['projectPath', 'scenePath', 'nodePath', 'newName'],
@@ -1096,29 +1067,29 @@ class GodotServer {
         },
         {
           name: 'reparent_node',
-          description: 'Move a node to a different parent in the scene tree',
+          description: 'Moves a node to a different parent in the scene tree, preserving all properties and children. Use for reorganizing scene hierarchy. Scene is saved automatically unless saveScene=false.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Level.tscn")',
               },
               nodePath: {
                 type: 'string',
-                description: 'Path to the node to move (e.g., "root/OldParent/Child")',
+                description: 'Path to node to move (e.g., "OldParent/Child", "UI/Button")',
               },
               newParentPath: {
                 type: 'string',
-                description: 'Path to the new parent node (e.g., "root/NewParent")',
+                description: 'Path to new parent node (e.g., "NewParent", "UI/Panel")',
               },
               saveScene: {
                 type: 'boolean',
-                description: 'Save the scene after reparenting (default: true)',
+                description: 'If true (default), saves scene after reparenting. Set false for batch operations.',
               },
             },
             required: ['projectPath', 'scenePath', 'nodePath', 'newParentPath'],
@@ -1129,21 +1100,21 @@ class GodotServer {
         // ============================================
         {
           name: 'get_import_status',
-          description: 'Get import status for resources in the project',
+          description: 'Returns import status for project resources. Use to find outdated or failed imports. Shows which resources need reimporting.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               resourcePath: {
                 type: 'string',
-                description: 'Optional: Path to a specific resource (relative to project). If omitted, returns status for all resources.',
+                description: 'Optional: specific resource path (e.g., "textures/player.png"). If omitted, returns all.',
               },
               includeUpToDate: {
                 type: 'boolean',
-                description: 'Include resources that are up-to-date (default: false)',
+                description: 'If true, includes already-imported resources. Default: false (only pending)',
               },
             },
             required: ['projectPath'],
@@ -1151,17 +1122,17 @@ class GodotServer {
         },
         {
           name: 'get_import_options',
-          description: 'Get import options/settings for a specific resource',
+          description: 'Returns current import settings for a resource. Use to check compression, mipmaps, filter settings before modifying.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               resourcePath: {
                 type: 'string',
-                description: 'Path to the resource file (relative to project)',
+                description: 'Path to resource file (e.g., "textures/player.png", "audio/music.ogg")',
               },
             },
             required: ['projectPath', 'resourcePath'],
@@ -1169,25 +1140,25 @@ class GodotServer {
         },
         {
           name: 'set_import_options',
-          description: 'Set import options for a resource',
+          description: 'Modifies import settings for a resource. Use to change compression, mipmaps, filter mode. Triggers reimport by default.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               resourcePath: {
                 type: 'string',
-                description: 'Path to the resource file (relative to project)',
+                description: 'Path to resource file (e.g., "textures/player.png")',
               },
               options: {
                 type: 'string',
-                description: 'Import options to set (e.g., {"compress/mode": 1, "mipmaps/generate": true}) (as JSON string)',
+                description: 'JSON string of import options (e.g., {"compress/mode": 1, "mipmaps/generate": true})',
               },
               reimport: {
                 type: 'boolean',
-                description: 'Trigger reimport after setting options (default: true)',
+                description: 'If true (default), reimports after setting. Set false for batch changes.',
               },
             },
             required: ['projectPath', 'resourcePath', 'options'],
@@ -1195,21 +1166,21 @@ class GodotServer {
         },
         {
           name: 'reimport_resource',
-          description: 'Trigger reimport of a resource or all resources',
+          description: 'Forces reimport of resources. Use after modifying source files or to fix import issues. Can reimport single file or all modified.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               resourcePath: {
                 type: 'string',
-                description: 'Optional: Path to a specific resource. If omitted, reimports all modified resources.',
+                description: 'Optional: specific resource to reimport. If omitted, reimports all modified.',
               },
               force: {
                 type: 'boolean',
-                description: 'Force reimport even if resource appears up-to-date (default: false)',
+                description: 'If true, reimports even if up-to-date. Default: false',
               },
             },
             required: ['projectPath'],
@@ -1217,17 +1188,17 @@ class GodotServer {
         },
         {
           name: 'list_export_presets',
-          description: 'List available export presets in the project',
+          description: 'Lists all export presets defined in export_presets.cfg. Use before export_project to see available targets (Windows, Linux, Android, etc.).',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               includeTemplateStatus: {
                 type: 'boolean',
-                description: 'Include export template installation status (default: true)',
+                description: 'If true (default), shows if export templates are installed.',
               },
             },
             required: ['projectPath'],
@@ -1235,25 +1206,25 @@ class GodotServer {
         },
         {
           name: 'export_project',
-          description: 'Export the project using a specified preset',
+          description: 'Exports the project to a distributable format. Use to build final game executables. Requires export templates installed.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               preset: {
                 type: 'string',
-                description: 'Name of the export preset to use',
+                description: 'Export preset name from export_presets.cfg (e.g., "Windows Desktop", "Linux/X11")',
               },
               outputPath: {
                 type: 'string',
-                description: 'Path for the exported file/directory',
+                description: 'Destination path for exported file (e.g., "builds/game.exe", "builds/game.x86_64")',
               },
               debug: {
                 type: 'boolean',
-                description: 'Export debug build (default: false for release)',
+                description: 'If true, exports debug build. Default: false (release)',
               },
             },
             required: ['projectPath', 'preset', 'outputPath'],
@@ -1261,21 +1232,21 @@ class GodotServer {
         },
         {
           name: 'validate_project',
-          description: 'Validate project for export readiness and common issues',
+          description: 'Checks project for export issues: missing resources, script errors, configuration problems. Use before export_project.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               preset: {
                 type: 'string',
-                description: 'Optional: Validate against a specific export preset',
+                description: 'Optional: validate against specific export preset requirements',
               },
               includeSuggestions: {
                 type: 'boolean',
-                description: 'Include fix suggestions for issues found (default: true)',
+                description: 'If true (default), includes fix suggestions for each issue',
               },
             },
             required: ['projectPath'],
@@ -1286,25 +1257,25 @@ class GodotServer {
         // ============================================
         {
           name: 'get_dependencies',
-          description: 'Get dependency graph for a resource with circular reference detection',
+          description: 'Analyzes resource dependencies and detects circular references. Use to understand what a scene/script depends on before refactoring.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               resourcePath: {
                 type: 'string',
-                description: 'Path to the resource to analyze (relative to project)',
+                description: 'Path to analyze (e.g., "scenes/player.tscn", "scripts/game.gd")',
               },
               depth: {
                 type: 'number',
-                description: 'Maximum depth to traverse (-1 for unlimited, default: -1)',
+                description: 'How deep to traverse dependencies. -1 for unlimited. Default: -1',
               },
               includeBuiltin: {
                 type: 'boolean',
-                description: 'Include built-in resources (default: false)',
+                description: 'If true, includes Godot built-in resources. Default: false',
               },
             },
             required: ['projectPath', 'resourcePath'],
@@ -1312,22 +1283,22 @@ class GodotServer {
         },
         {
           name: 'find_resource_usages',
-          description: 'Find all usages of a resource across the project',
+          description: 'Finds all files that reference a resource. Use before deleting or renaming to avoid breaking references.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               resourcePath: {
                 type: 'string',
-                description: 'Path to the resource to search for (relative to project)',
+                description: 'Resource to search for (e.g., "textures/player.png")',
               },
               fileTypes: {
                 type: 'array',
                 items: { type: 'string' },
-                description: 'File types to search (default: ["tscn", "tres", "gd"])',
+                description: 'File types to search. Default: ["tscn", "tres", "gd"]',
               },
             },
             required: ['projectPath', 'resourcePath'],
@@ -1335,21 +1306,21 @@ class GodotServer {
         },
         {
           name: 'parse_error_log',
-          description: 'Parse Godot error log and provide suggestions',
+          description: 'Parses Godot error log and provides fix suggestions. Use to diagnose runtime errors or script issues.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               logContent: {
                 type: 'string',
-                description: 'Error log content to parse (if not provided, reads from godot.log)',
+                description: 'Optional: error log text. If omitted, reads from godot.log',
               },
               maxErrors: {
                 type: 'number',
-                description: 'Maximum number of errors to return (default: 50)',
+                description: 'Maximum errors to return. Default: 50',
               },
             },
             required: ['projectPath'],
@@ -1357,17 +1328,17 @@ class GodotServer {
         },
         {
           name: 'get_project_health',
-          description: 'Get comprehensive project health report with scoring',
+          description: 'Generates a health report with scoring for project quality. Checks for unused resources, script errors, missing references, etc.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               includeDetails: {
                 type: 'boolean',
-                description: 'Include detailed breakdown (default: true)',
+                description: 'If true (default), includes detailed breakdown per category',
               },
             },
             required: ['projectPath'],
@@ -1378,17 +1349,17 @@ class GodotServer {
         // ============================================
         {
           name: 'get_project_setting',
-          description: 'Get a project setting value',
+          description: 'Reads a value from project.godot settings. Use to check game name, window size, physics settings, etc.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               setting: {
                 type: 'string',
-                description: 'Setting path (e.g., "application/config/name")',
+                description: 'Setting path (e.g., "application/config/name", "display/window/size/width", "physics/2d/default_gravity")',
               },
             },
             required: ['projectPath', 'setting'],
@@ -1396,21 +1367,21 @@ class GodotServer {
         },
         {
           name: 'set_project_setting',
-          description: 'Set a project setting value',
+          description: 'Writes a value to project.godot settings. Use to configure game name, window size, physics, etc.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               setting: {
                 type: 'string',
-                description: 'Setting path (e.g., "application/config/name")',
+                description: 'Setting path (e.g., "application/config/name", "display/window/size/width")',
               },
               value: {
                 type: 'string',
-                description: 'Value to set (Godot handles type conversion)',
+                description: 'Value to set (Godot auto-converts types)',
               },
             },
             required: ['projectPath', 'setting', 'value'],
@@ -1418,25 +1389,25 @@ class GodotServer {
         },
         {
           name: 'add_autoload',
-          description: 'Add an autoload (singleton) to the project',
+          description: 'Registers a script/scene as an autoload singleton. Use for global managers (GameManager, AudioManager, etc.). Loads automatically on game start.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               name: {
                 type: 'string',
-                description: 'Name for the autoload singleton',
+                description: 'Singleton name for global access (e.g., "GameManager", "EventBus")',
               },
               path: {
                 type: 'string',
-                description: 'Path to the script or scene file',
+                description: 'Path to .gd or .tscn file (e.g., "autoload/game_manager.gd")',
               },
               enabled: {
                 type: 'boolean',
-                description: 'Whether the autoload is enabled (default: true)',
+                description: 'If true (default), autoload is active. Set false to temporarily disable.',
               },
             },
             required: ['projectPath', 'name', 'path'],
@@ -1444,17 +1415,17 @@ class GodotServer {
         },
         {
           name: 'remove_autoload',
-          description: 'Remove an autoload from the project',
+          description: 'Unregisters an autoload singleton. Use to remove global managers no longer needed.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               name: {
                 type: 'string',
-                description: 'Name of the autoload to remove',
+                description: 'Singleton name to remove (e.g., "GameManager")',
               },
             },
             required: ['projectPath', 'name'],
@@ -1462,13 +1433,13 @@ class GodotServer {
         },
         {
           name: 'list_autoloads',
-          description: 'List all autoloads in the project',
+          description: 'Lists all registered autoload singletons in the project. Shows name, path, and enabled status.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
             },
             required: ['projectPath'],
@@ -1476,17 +1447,17 @@ class GodotServer {
         },
         {
           name: 'set_main_scene',
-          description: 'Set the main scene for the project',
+          description: 'Sets which scene loads first when the game starts. Updates application/run/main_scene in project.godot.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to main scene (e.g., "scenes/main_menu.tscn", "scenes/game.tscn")',
               },
             },
             required: ['projectPath', 'scenePath'],
@@ -1497,37 +1468,37 @@ class GodotServer {
         // ============================================
         {
           name: 'connect_signal',
-          description: 'Connect a signal between nodes in a scene',
+          description: 'Creates a signal connection between nodes in a scene. Prerequisite: source and target nodes must exist. Use to wire up button clicks, collision events, custom signals. Saved to scene file.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file (e.g., "scenes/ui/menu.tscn")',
               },
               sourceNodePath: {
                 type: 'string',
-                description: 'Path to the source node (e.g., "root/Button")',
+                description: 'Emitting node path (e.g., "StartButton", "Player/Area2D")',
               },
               signalName: {
                 type: 'string',
-                description: 'Name of the signal to connect (e.g., "pressed")',
+                description: 'Signal name (e.g., "pressed", "body_entered", "health_changed")',
               },
               targetNodePath: {
                 type: 'string',
-                description: 'Path to the target node (e.g., "root/Player")',
+                description: 'Receiving node path (e.g., ".", "Player", "../GameManager")',
               },
               methodName: {
                 type: 'string',
-                description: 'Name of the method to call on the target node',
+                description: 'Method to call on target (e.g., "_on_start_pressed", "take_damage")',
               },
               flags: {
                 type: 'number',
-                description: 'Optional: Connection flags (default: 0)',
+                description: 'Optional: connection flags (0=default, 1=deferred, 2=persist, 4=one_shot)',
               },
             },
             required: ['projectPath', 'scenePath', 'sourceNodePath', 'signalName', 'targetNodePath', 'methodName'],
@@ -1535,33 +1506,33 @@ class GodotServer {
         },
         {
           name: 'disconnect_signal',
-          description: 'Disconnect a signal connection in a scene',
+          description: 'Removes a signal connection from a scene. Use to clean up unused connections or rewire logic.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file (e.g., "scenes/ui/menu.tscn")',
               },
               sourceNodePath: {
                 type: 'string',
-                description: 'Path to the source node (e.g., "root/Button")',
+                description: 'Emitting node path (e.g., "StartButton")',
               },
               signalName: {
                 type: 'string',
-                description: 'Name of the signal to disconnect',
+                description: 'Signal name (e.g., "pressed")',
               },
               targetNodePath: {
                 type: 'string',
-                description: 'Path to the target node',
+                description: 'Receiving node path (e.g., ".")',
               },
               methodName: {
                 type: 'string',
-                description: 'Name of the method that was connected',
+                description: 'Connected method name (e.g., "_on_start_pressed")',
               },
             },
             required: ['projectPath', 'scenePath', 'sourceNodePath', 'signalName', 'targetNodePath', 'methodName'],
@@ -1569,21 +1540,21 @@ class GodotServer {
         },
         {
           name: 'list_connections',
-          description: 'List all signal connections in a scene',
+          description: 'Lists all signal connections in a scene. Use to understand event flow or debug connection issues.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file (e.g., "scenes/player.tscn")',
               },
               nodePath: {
                 type: 'string',
-                description: 'Optional: Filter connections by node path (all if omitted)',
+                description: 'Optional: filter to connections involving this node. If omitted, shows all.',
               },
             },
             required: ['projectPath', 'scenePath'],
@@ -1594,13 +1565,13 @@ class GodotServer {
         // ============================================
         {
           name: 'get_runtime_status',
-          description: 'Check if a Godot runtime is connected and get its status',
+          description: 'Checks if a Godot game instance is running and connected for live debugging. Use before other runtime tools.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
             },
             required: ['projectPath'],
@@ -1705,29 +1676,29 @@ class GodotServer {
         // ============================================
         {
           name: 'create_resource',
-          description: 'Create a custom resource file (.tres)',
+          description: 'Creates a custom Resource file (.tres). Use for data containers like item stats, character configs, or level data. Can attach custom scripts.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               resourcePath: {
                 type: 'string',
-                description: 'Path where the resource file will be saved (relative to project)',
+                description: 'Path for new .tres file relative to project (e.g., "resources/items/sword.tres")',
               },
               resourceType: {
                 type: 'string',
-                description: 'Class name of the resource (e.g., "Resource", "AudioStreamPlayer", "CurveTexture")',
+                description: 'Resource class name (e.g., "Resource", "CurveTexture", "GradientTexture2D")',
               },
               properties: {
                 type: 'string',
-                description: 'Optional properties to set on the resource (as JSON string)',
+                description: 'Optional: JSON object of properties to set (e.g., {"value": 100})',
               },
               script: {
                 type: 'string',
-                description: 'Optional: Path to a custom resource script (relative to project)',
+                description: 'Optional: path to custom Resource script (e.g., "scripts/resources/item_data.gd")',
               },
             },
             required: ['projectPath', 'resourcePath', 'resourceType'],
@@ -1735,30 +1706,30 @@ class GodotServer {
         },
         {
           name: 'create_material',
-          description: 'Create a material resource file',
+          description: 'Creates a material resource for 3D/2D rendering. Types: StandardMaterial3D (PBR), ShaderMaterial (custom), CanvasItemMaterial (2D), ParticleProcessMaterial (particles).',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               materialPath: {
                 type: 'string',
-                description: 'Path where the material file will be saved (relative to project)',
+                description: 'Path for new material file relative to project (e.g., "materials/player.tres")',
               },
               materialType: {
                 type: 'string',
                 enum: ['StandardMaterial3D', 'ShaderMaterial', 'CanvasItemMaterial', 'ParticleProcessMaterial'],
-                description: 'Type of material to create',
+                description: 'Material type: StandardMaterial3D (3D PBR), ShaderMaterial (custom shader), CanvasItemMaterial (2D), ParticleProcessMaterial (particles)',
               },
               properties: {
                 type: 'string',
-                description: 'Optional properties to set on the material (e.g., albedo_color, metallic) (as JSON string)',
+                description: 'Optional: JSON object of properties (e.g., {"albedo_color": [1, 0, 0, 1], "metallic": 0.8})',
               },
               shader: {
                 type: 'string',
-                description: 'Optional: Path to a shader file for ShaderMaterial (relative to project)',
+                description: 'Optional for ShaderMaterial: path to .gdshader file (e.g., "shaders/outline.gdshader")',
               },
             },
             required: ['projectPath', 'materialPath', 'materialType'],
@@ -1766,30 +1737,30 @@ class GodotServer {
         },
         {
           name: 'create_shader',
-          description: 'Create a shader file (.gdshader)',
+          description: 'Creates a shader file (.gdshader) with optional templates. Types: canvas_item (2D), spatial (3D), particles, sky, fog. Templates: basic, color_shift, outline.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               shaderPath: {
                 type: 'string',
-                description: 'Path where the shader file will be saved (relative to project)',
+                description: 'Path for new .gdshader file relative to project (e.g., "shaders/outline.gdshader")',
               },
               shaderType: {
                 type: 'string',
                 enum: ['canvas_item', 'spatial', 'particles', 'sky', 'fog'],
-                description: 'Type of shader to create',
+                description: 'Shader type: canvas_item (2D/UI), spatial (3D), particles, sky, fog',
               },
               code: {
                 type: 'string',
-                description: 'Optional: Custom shader code (if not provided, a template will be used)',
+                description: 'Optional: custom shader code. If omitted, uses template or generates basic shader.',
               },
               template: {
                 type: 'string',
-                description: 'Optional: Predefined template name (e.g., "basic", "color_shift", "outline")',
+                description: 'Optional: predefined template - "basic", "color_shift", "outline"',
               },
             },
             required: ['projectPath', 'shaderPath', 'shaderType'],
@@ -1800,33 +1771,33 @@ class GodotServer {
         // ============================================
         {
           name: 'create_script',
-          description: 'Create a new GDScript file with proper structure and optional templates',
+          description: 'Creates a new GDScript (.gd) file with optional templates. Use to generate scripts for game logic. Templates: "singleton" (autoload), "state_machine" (FSM), "component" (modular), "resource" (custom Resource).',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scriptPath: {
                 type: 'string',
-                description: 'Path for new script relative to project (must end with .gd)',
+                description: 'Path for new script relative to project (e.g., "scripts/player.gd", "autoload/game_manager.gd")',
               },
               className: {
                 type: 'string',
-                description: 'Optional: class_name for global registration',
+                description: 'Optional: class_name for global access (e.g., "Player", "GameManager")',
               },
               extends: {
                 type: 'string',
-                description: 'Base class to extend (default: "Node")',
+                description: 'Base class to extend (e.g., "Node", "CharacterBody2D", "Resource"). Default: "Node"',
               },
               content: {
                 type: 'string',
-                description: 'Optional: Initial script content (variables, functions, etc.)',
+                description: 'Optional: initial script content to add after class declaration',
               },
               template: {
                 type: 'string',
-                description: 'Optional: Template name ("singleton", "state_machine", "component", "resource")',
+                description: 'Optional: template name - "singleton", "state_machine", "component", "resource"',
               },
             },
             required: ['projectPath', 'scriptPath'],
@@ -1834,17 +1805,17 @@ class GodotServer {
         },
         {
           name: 'modify_script',
-          description: 'Modify an existing GDScript file by adding functions, variables, or signals',
+          description: 'Adds functions, variables, or signals to an existing GDScript. Use to extend scripts without manual editing. Supports @export, @onready annotations and type hints.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scriptPath: {
                 type: 'string',
-                description: 'Path to the script file relative to project',
+                description: 'Path to existing .gd file relative to project (e.g., "scripts/player.gd")',
               },
               modifications: {
                 type: 'array',
@@ -1906,21 +1877,21 @@ class GodotServer {
         },
         {
           name: 'get_script_info',
-          description: 'Analyze a GDScript file and return its structure (functions, variables, signals, etc.)',
+          description: 'Analyzes a GDScript and returns its structure: functions, variables, signals, class_name, extends. Use before modify_script to understand existing code.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scriptPath: {
                 type: 'string',
-                description: 'Path to the script file relative to project',
+                description: 'Path to .gd file relative to project (e.g., "scripts/player.gd")',
               },
               includeInherited: {
                 type: 'boolean',
-                description: 'Include members from parent classes (default: false)',
+                description: 'If true, includes members from parent classes. Default: false (only script-defined members).',
               },
             },
             required: ['projectPath', 'scriptPath'],
@@ -1931,25 +1902,25 @@ class GodotServer {
         // ============================================
         {
           name: 'create_animation',
-          description: 'Create a new animation in an AnimationPlayer node',
+          description: 'Creates a new animation in an AnimationPlayer. Prerequisite: AnimationPlayer node must exist in scene (use add_node first). Use to set up character animations, UI transitions, or cutscenes. Supports loop modes: none, linear, pingpong.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               playerNodePath: {
                 type: 'string',
-                description: 'Path to the AnimationPlayer node (e.g., "root/Player/AnimationPlayer")',
+                description: 'Path to AnimationPlayer node in scene (e.g., ".", "Player/AnimationPlayer")',
               },
               animationName: {
                 type: 'string',
-                description: 'Name for the new animation',
+                description: 'Name for new animation (e.g., "walk", "idle", "attack")',
               },
               length: {
                 type: 'number',
@@ -1970,25 +1941,25 @@ class GodotServer {
         },
         {
           name: 'add_animation_track',
-          description: 'Add a track to an existing animation in an AnimationPlayer',
+          description: 'Adds a property or method track to an animation. Prerequisite: animation must exist (use create_animation first). Use to animate position, rotation, color, or call methods at specific times. Keyframes define values over time.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to .tscn file relative to project (e.g., "scenes/Player.tscn")',
               },
               playerNodePath: {
                 type: 'string',
-                description: 'Path to the AnimationPlayer node (e.g., "root/Player/AnimationPlayer")',
+                description: 'Path to AnimationPlayer node in scene (e.g., ".", "Player/AnimationPlayer")',
               },
               animationName: {
                 type: 'string',
-                description: 'Name of the animation to add the track to',
+                description: 'Name of existing animation to add track to (e.g., "walk", "idle")',
               },
               track: {
                 type: 'object',
@@ -2046,13 +2017,13 @@ class GodotServer {
         // ============================================
         {
           name: 'list_plugins',
-          description: 'List all plugins in the project with their status',
+          description: 'Lists all plugins in addons/ folder with enabled/disabled status. Use before enable_plugin or disable_plugin to see available plugins.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
             },
             required: ['projectPath'],
@@ -2060,17 +2031,17 @@ class GodotServer {
         },
         {
           name: 'enable_plugin',
-          description: 'Enable a plugin in the project',
+          description: 'Enables a plugin from addons/ folder. Updates project.godot automatically. Use list_plugins first to see available plugins.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               pluginName: {
                 type: 'string',
-                description: 'Plugin folder name (in addons directory)',
+                description: 'Plugin folder name in addons/ (e.g., "dialogue_manager", "scatter")',
               },
             },
             required: ['projectPath', 'pluginName'],
@@ -2078,17 +2049,17 @@ class GodotServer {
         },
         {
           name: 'disable_plugin',
-          description: 'Disable a plugin in the project',
+          description: 'Disables a plugin in the project. Updates project.godot automatically. Plugin files remain in addons/ folder.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               pluginName: {
                 type: 'string',
-                description: 'Plugin folder name (in addons directory)',
+                description: 'Plugin folder name in addons/ (e.g., "dialogue_manager", "scatter")',
               },
             },
             required: ['projectPath', 'pluginName'],
@@ -2099,32 +2070,32 @@ class GodotServer {
         // ============================================
         {
           name: 'add_input_action',
-          description: 'Add an input action to the InputMap',
+          description: 'Registers a new input action in project.godot InputMap. Use to set up keyboard, mouse, or gamepad controls for player actions like jump, move, attack.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               actionName: {
                 type: 'string',
-                description: 'Name of the input action (e.g., "jump", "move_left")',
+                description: 'Action name used in code (e.g., "jump", "move_left", "attack")',
               },
               events: {
                 type: 'array',
-                description: 'Array of input events to bind',
+                description: 'Array of input events - each with type (key/mouse_button/joypad_button/joypad_axis) and binding details',
                 items: {
                   type: 'object',
                   properties: {
                     type: {
                       type: 'string',
                       enum: ['key', 'mouse_button', 'joypad_button', 'joypad_axis'],
-                      description: 'Type of input event',
+                      description: 'Input event type',
                     },
                     keycode: {
                       type: 'string',
-                      description: 'For key events: key name (e.g., "Space", "W", "Escape")',
+                      description: 'For key: key name (e.g., "Space", "W", "Escape")',
                     },
                     button: {
                       type: 'number',
@@ -2132,23 +2103,23 @@ class GodotServer {
                     },
                     axis: {
                       type: 'number',
-                      description: 'For joypad_axis: axis number',
+                      description: 'For joypad_axis: axis number (0-3)',
                     },
                     axisValue: {
                       type: 'number',
-                      description: 'For joypad_axis: axis value (-1 or 1)',
+                      description: 'For joypad_axis: direction (-1 or 1)',
                     },
                     ctrl: {
                       type: 'boolean',
-                      description: 'For key events: require Ctrl modifier',
+                      description: 'For key: require Ctrl modifier',
                     },
                     alt: {
                       type: 'boolean',
-                      description: 'For key events: require Alt modifier',
+                      description: 'For key: require Alt modifier',
                     },
                     shift: {
                       type: 'boolean',
-                      description: 'For key events: require Shift modifier',
+                      description: 'For key: require Shift modifier',
                     },
                   },
                   required: ['type'],
@@ -2156,7 +2127,7 @@ class GodotServer {
               },
               deadzone: {
                 type: 'number',
-                description: 'Deadzone for the input action (default: 0.5)',
+                description: 'Analog stick deadzone (0-1). Default: 0.5',
               },
             },
             required: ['projectPath', 'actionName', 'events'],
@@ -2167,34 +2138,34 @@ class GodotServer {
         // ============================================
         {
           name: 'search_project',
-          description: 'Search for text or patterns across project files',
+          description: 'Searches for text or regex patterns across project files. Use to find function usages, variable references, or TODOs. Returns file paths and line numbers.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               query: {
                 type: 'string',
-                description: 'Search text or pattern',
+                description: 'Search text or regex pattern (e.g., "player", "TODO", "func.*damage")',
               },
               fileTypes: {
                 type: 'array',
                 items: { type: 'string' },
-                description: 'File extensions to search (default: ["gd", "tscn", "tres"])',
+                description: 'File extensions to search. Default: ["gd", "tscn", "tres"]',
               },
               regex: {
                 type: 'boolean',
-                description: 'Treat query as a regular expression (default: false)',
+                description: 'If true, treats query as regex. Default: false',
               },
               caseSensitive: {
                 type: 'boolean',
-                description: 'Case-sensitive search (default: false)',
+                description: 'If true, case-sensitive search. Default: false',
               },
               maxResults: {
                 type: 'number',
-                description: 'Maximum number of results to return (default: 100)',
+                description: 'Maximum results to return. Default: 100',
               },
             },
             required: ['projectPath', 'query'],
@@ -2205,48 +2176,48 @@ class GodotServer {
         // ============================================
         {
           name: 'create_tileset',
-          description: 'Create a TileSet resource with atlas sources for 2D tilemaps',
+          description: 'Creates a TileSet resource from texture atlases. Use for 2D tilemaps in platformers, RPGs, etc. Supports multiple atlas sources.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               tilesetPath: {
                 type: 'string',
-                description: 'Output path for the TileSet resource file (.tres)',
+                description: 'Output path for TileSet (e.g., "resources/world_tiles.tres")',
               },
               sources: {
                 type: 'array',
-                description: 'Array of tile atlas sources to add to the tileset',
+                description: 'Array of atlas sources, each with texture path and tileSize {x, y}',
                 items: {
                   type: 'object',
                   properties: {
                     texture: {
                       type: 'string',
-                      description: 'Path to the texture file (relative to project)',
+                      description: 'Texture path relative to project (e.g., "sprites/tileset.png")',
                     },
                     tileSize: {
                       type: 'object',
-                      description: 'Size of each tile in pixels',
+                      description: 'Tile dimensions in pixels',
                       properties: {
-                        x: { type: 'number', description: 'Tile width in pixels' },
-                        y: { type: 'number', description: 'Tile height in pixels' },
+                        x: { type: 'number', description: 'Tile width (e.g., 16, 32)' },
+                        y: { type: 'number', description: 'Tile height (e.g., 16, 32)' },
                       },
                       required: ['x', 'y'],
                     },
                     separation: {
                       type: 'object',
-                      description: 'Optional: Separation between tiles in pixels',
+                      description: 'Optional: gap between tiles in source texture',
                       properties: {
-                        x: { type: 'number', description: 'Horizontal separation' },
-                        y: { type: 'number', description: 'Vertical separation' },
+                        x: { type: 'number', description: 'Horizontal gap' },
+                        y: { type: 'number', description: 'Vertical gap' },
                       },
                     },
                     offset: {
                       type: 'object',
-                      description: 'Optional: Offset from texture origin in pixels',
+                      description: 'Optional: offset from texture origin',
                       properties: {
                         x: { type: 'number', description: 'Horizontal offset' },
                         y: { type: 'number', description: 'Vertical offset' },
@@ -2262,57 +2233,57 @@ class GodotServer {
         },
         {
           name: 'set_tilemap_cells',
-          description: 'Set cells in a TileMap node within a scene',
+          description: 'Places tiles in a TileMap node. Use to programmatically generate levels or modify existing tilemaps.',
           inputSchema: {
             type: 'object',
             properties: {
               projectPath: {
                 type: 'string',
-                description: 'Path to the Godot project directory',
+                description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.',
               },
               scenePath: {
                 type: 'string',
-                description: 'Path to the scene file (relative to project)',
+                description: 'Path to scene containing TileMap (e.g., "scenes/level1.tscn")',
               },
               tilemapNodePath: {
                 type: 'string',
-                description: 'Path to the TileMap node within the scene (e.g., "root/TileMap")',
+                description: 'Path to TileMap node (e.g., "World/TileMap")',
               },
               layer: {
                 type: 'number',
-                description: 'Optional: TileMap layer index (default: 0)',
+                description: 'TileMap layer index. Default: 0',
               },
               cells: {
                 type: 'array',
-                description: 'Array of cells to set in the tilemap',
+                description: 'Array of cells with coords {x,y}, sourceId, atlasCoords {x,y}',
                 items: {
                   type: 'object',
                   properties: {
                     coords: {
                       type: 'object',
-                      description: 'Cell coordinates in the tilemap grid',
+                      description: 'Grid position in tilemap',
                       properties: {
-                        x: { type: 'number', description: 'X coordinate' },
-                        y: { type: 'number', description: 'Y coordinate' },
+                        x: { type: 'number', description: 'Grid X' },
+                        y: { type: 'number', description: 'Grid Y' },
                       },
                       required: ['x', 'y'],
                     },
                     sourceId: {
                       type: 'number',
-                      description: 'Source ID from the TileSet (0-indexed)',
+                      description: 'TileSet source ID (0-indexed)',
                     },
                     atlasCoords: {
                       type: 'object',
-                      description: 'Coordinates of the tile within the atlas texture',
+                      description: 'Tile position in atlas',
                       properties: {
-                        x: { type: 'number', description: 'Atlas X coordinate' },
-                        y: { type: 'number', description: 'Atlas Y coordinate' },
+                        x: { type: 'number', description: 'Atlas X' },
+                        y: { type: 'number', description: 'Atlas Y' },
                       },
                       required: ['x', 'y'],
                     },
                     alternativeTile: {
                       type: 'number',
-                      description: 'Optional: Alternative tile index (default: 0)',
+                      description: 'Optional: alternative tile variant. Default: 0',
                     },
                   },
                   required: ['coords', 'sourceId', 'atlasCoords'],
@@ -2325,70 +2296,70 @@ class GodotServer {
         // ==================== AUDIO SYSTEM TOOLS ====================
         {
           name: 'create_audio_bus',
-          description: 'Create a new audio bus with optional parent bus',
+          description: 'Creates a new audio bus for mixing. Use to set up separate volume controls for music, SFX, voice, etc.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              busName: { type: 'string', description: 'Name for the new audio bus' },
-              parentBusIndex: { type: 'number', description: 'Parent bus index (default: 0 for Master)' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              busName: { type: 'string', description: 'Name for the audio bus (e.g., "Music", "SFX", "Voice")' },
+              parentBusIndex: { type: 'number', description: 'Parent bus index. Default: 0 (Master)' },
             },
             required: ['projectPath', 'busName'],
           },
         },
         {
           name: 'get_audio_buses',
-          description: 'List all audio buses and their configuration',
+          description: 'Lists all audio buses and their configuration. Use to check current audio setup.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
             },
             required: ['projectPath'],
           },
         },
         {
           name: 'set_audio_bus_effect',
-          description: 'Add or configure an effect on an audio bus',
+          description: 'Adds or configures an audio effect on a bus. Use for reverb, delay, EQ, compression, etc.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              busIndex: { type: 'number', description: 'Audio bus index' },
-              effectIndex: { type: 'number', description: 'Effect slot index' },
-              effectType: { type: 'string', description: 'Effect type (Reverb, Delay, Chorus, etc.)' },
-              enabled: { type: 'boolean', description: 'Whether effect is enabled' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              busIndex: { type: 'number', description: 'Bus index (0 = Master)' },
+              effectIndex: { type: 'number', description: 'Effect slot index (0-7)' },
+              effectType: { type: 'string', description: 'Effect type (e.g., "Reverb", "Delay", "Chorus", "Compressor")' },
+              enabled: { type: 'boolean', description: 'Whether effect is active' },
             },
             required: ['projectPath', 'busIndex', 'effectIndex', 'effectType'],
           },
         },
         {
           name: 'set_audio_bus_volume',
-          description: 'Set volume for an audio bus',
+          description: 'Sets volume for an audio bus in decibels. Use to balance audio levels.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              busIndex: { type: 'number', description: 'Audio bus index' },
-              volumeDb: { type: 'number', description: 'Volume in decibels' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              busIndex: { type: 'number', description: 'Bus index (0 = Master)' },
+              volumeDb: { type: 'number', description: 'Volume in decibels (0 = unity, -80 = silent, +6 = boost)' },
             },
             required: ['projectPath', 'busIndex', 'volumeDb'],
           },
         },
         {
           name: 'create_audio_stream_player',
-          description: 'Create an AudioStreamPlayer node in a scene',
+          description: 'Creates an AudioStreamPlayer node for playing sounds. Choose 2D/3D variants for positional audio.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the audio player' },
-              playerType: { type: 'string', enum: ['AudioStreamPlayer', 'AudioStreamPlayer2D', 'AudioStreamPlayer3D'], description: 'Type of audio player' },
-              audioPath: { type: 'string', description: 'Path to audio file (optional)' },
-              bus: { type: 'string', description: 'Audio bus name (default: Master)' },
-              autoplay: { type: 'boolean', description: 'Auto-play on ready' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file (e.g., "scenes/player.tscn")' },
+              parentPath: { type: 'string', description: 'Parent node path (e.g., "Player")' },
+              nodeName: { type: 'string', description: 'Node name (e.g., "FootstepSound", "BGMusic")' },
+              playerType: { type: 'string', enum: ['AudioStreamPlayer', 'AudioStreamPlayer2D', 'AudioStreamPlayer3D'], description: 'Player type: global, 2D positional, or 3D positional' },
+              audioPath: { type: 'string', description: 'Optional: path to audio file to assign' },
+              bus: { type: 'string', description: 'Audio bus name. Default: "Master"' },
+              autoplay: { type: 'boolean', description: 'If true, plays on scene load' },
             },
             required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
           },
@@ -2396,14 +2367,14 @@ class GodotServer {
         // ==================== NETWORKING TOOLS ====================
         {
           name: 'create_http_request',
-          description: 'Create an HTTPRequest node in a scene',
+          description: 'Creates an HTTPRequest node for web API calls. Use for leaderboards, cloud saves, REST APIs.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the HTTPRequest node' },
+              nodeName: { type: 'string', description: 'Node name (e.g., "LeaderboardAPI")' },
               timeout: { type: 'number', description: 'Request timeout in seconds' },
             },
             required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
@@ -2411,31 +2382,31 @@ class GodotServer {
         },
         {
           name: 'create_multiplayer_spawner',
-          description: 'Create a MultiplayerSpawner node for network replication',
+          description: 'Creates a MultiplayerSpawner for network object replication. Use for spawning players, projectiles, items in multiplayer.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the spawner' },
-              spawnPath: { type: 'string', description: 'Node path where spawned nodes appear' },
-              spawnableScenes: { type: 'array', items: { type: 'string' }, description: 'List of spawnable scene paths' },
+              nodeName: { type: 'string', description: 'Node name (e.g., "PlayerSpawner")' },
+              spawnPath: { type: 'string', description: 'Node path where spawned objects appear' },
+              spawnableScenes: { type: 'array', items: { type: 'string' }, description: 'Array of scene paths that can be spawned' },
             },
             required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
           },
         },
         {
           name: 'create_multiplayer_synchronizer',
-          description: 'Create a MultiplayerSynchronizer node for property sync',
+          description: 'Creates a MultiplayerSynchronizer for property replication. Use to sync player position, health, state across network.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the synchronizer' },
-              rootPath: { type: 'string', description: 'Root node path to synchronize' },
+              nodeName: { type: 'string', description: 'Node name (e.g., "PositionSync")' },
+              rootPath: { type: 'string', description: 'Node to sync properties from' },
               replicationInterval: { type: 'number', description: 'Sync interval in seconds' },
             },
             required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
@@ -2444,29 +2415,29 @@ class GodotServer {
         // ==================== PHYSICS TOOLS ====================
         {
           name: 'configure_physics_layer',
-          description: 'Set name for a physics layer',
+          description: 'Names a physics collision layer for easier debugging. Use to organize collision groups (Player, Enemy, World, etc.)',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              layerType: { type: 'string', enum: ['2d', '3d'], description: '2D or 3D physics' },
-              layerIndex: { type: 'number', description: 'Layer index (1-32)' },
-              layerName: { type: 'string', description: 'Name for the layer' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              layerType: { type: 'string', enum: ['2d', '3d'], description: 'One of: 2d, 3d' },
+              layerIndex: { type: 'number', description: 'Layer number (1-32)' },
+              layerName: { type: 'string', description: 'Descriptive name (e.g., "Player", "Enemy", "Projectile")' },
             },
             required: ['projectPath', 'layerType', 'layerIndex', 'layerName'],
           },
         },
         {
           name: 'create_physics_material',
-          description: 'Create a PhysicsMaterial resource',
+          description: 'Creates a PhysicsMaterial for surface properties. Use for ice (low friction), rubber (high bounce), etc.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              materialPath: { type: 'string', description: 'Path to save the material' },
-              friction: { type: 'number', description: 'Friction coefficient (0-1)' },
-              bounce: { type: 'number', description: 'Bounce coefficient (0-1)' },
-              rough: { type: 'boolean', description: 'Use rough friction' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              materialPath: { type: 'string', description: 'Output path (e.g., "resources/ice_physics.tres")' },
+              friction: { type: 'number', description: 'Friction coefficient (0-1). Default: 1.0' },
+              bounce: { type: 'number', description: 'Bounciness (0-1). Default: 0.0' },
+              rough: { type: 'boolean', description: 'Use rough friction mode' },
               absorbent: { type: 'boolean', description: 'Absorb bounce energy' },
             },
             required: ['projectPath', 'materialPath'],
@@ -2474,16 +2445,16 @@ class GodotServer {
         },
         {
           name: 'create_raycast',
-          description: 'Create a RayCast2D or RayCast3D node',
+          description: 'Creates a RayCast node for line-of-sight checks. Use for ground detection, shooting, AI vision.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the raycast' },
-              is3D: { type: 'boolean', description: 'Use RayCast3D (default: false for 2D)' },
-              targetPosition: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } }, description: 'Target position for ray' },
+              nodeName: { type: 'string', description: 'Node name (e.g., "GroundCheck", "AimRay")' },
+              is3D: { type: 'boolean', description: 'If true, creates RayCast3D. Default: false (2D)' },
+              targetPosition: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } }, description: 'Ray end point {x, y, z}' },
               collisionMask: { type: 'number', description: 'Collision mask bits' },
             },
             required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
@@ -2491,15 +2462,15 @@ class GodotServer {
         },
         {
           name: 'set_collision_layer_mask',
-          description: 'Set collision layer and mask for a physics body',
+          description: 'Sets collision layer and mask on a physics body. Use to control what objects can collide with each other.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              nodePath: { type: 'string', description: 'Path to the physics body node' },
-              collisionLayer: { type: 'number', description: 'Collision layer bits' },
-              collisionMask: { type: 'number', description: 'Collision mask bits' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file' },
+              nodePath: { type: 'string', description: 'Path to physics body node' },
+              collisionLayer: { type: 'number', description: 'Layer bits (what this object IS)' },
+              collisionMask: { type: 'number', description: 'Mask bits (what this object DETECTS)' },
             },
             required: ['projectPath', 'scenePath', 'nodePath'],
           },
@@ -2507,30 +2478,30 @@ class GodotServer {
         // ==================== NAVIGATION TOOLS ====================
         {
           name: 'create_navigation_region',
-          description: 'Create a NavigationRegion2D or NavigationRegion3D',
+          description: 'Creates a NavigationRegion for pathfinding. Use to define walkable areas for AI navigation.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the navigation region' },
-              is3D: { type: 'boolean', description: 'Use 3D navigation (default: false)' },
+              nodeName: { type: 'string', description: 'Node name (e.g., "WalkableArea")' },
+              is3D: { type: 'boolean', description: 'If true, creates NavigationRegion3D. Default: false' },
             },
             required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
           },
         },
         {
           name: 'create_navigation_agent',
-          description: 'Create a NavigationAgent2D or NavigationAgent3D',
+          description: 'Creates a NavigationAgent for AI pathfinding. Use for enemies, NPCs that need to navigate around obstacles.',
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the navigation agent' },
-              is3D: { type: 'boolean', description: 'Use 3D navigation (default: false)' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
+              scenePath: { type: 'string', description: 'Path to scene file' },
+              parentPath: { type: 'string', description: 'Parent node path (usually the character)' },
+              nodeName: { type: 'string', description: 'Node name (e.g., "NavAgent")' },
+              is3D: { type: 'boolean', description: 'If true, creates NavigationAgent3D. Default: false' },
               pathDesiredDistance: { type: 'number', description: 'Distance to consider waypoint reached' },
               targetDesiredDistance: { type: 'number', description: 'Distance to consider target reached' },
             },
@@ -2543,7 +2514,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               is3D: { type: 'boolean', description: 'Configure 3D navigation layers' },
               layerIndex: { type: 'number', description: 'Layer index (1-32)' },
               layerName: { type: 'string', description: 'Name for the layer' },
@@ -2558,7 +2529,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               resourcePath: { type: 'string', description: 'Path to save the environment' },
               backgroundMode: { type: 'string', enum: ['sky', 'color', 'canvas'], description: 'Background mode' },
               backgroundColor: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' } }, description: 'Background color' },
@@ -2577,7 +2548,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
               nodeName: { type: 'string', description: 'Name for the WorldEnvironment' },
@@ -2592,7 +2563,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
               nodeName: { type: 'string', description: 'Name for the light' },
@@ -2610,7 +2581,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
               nodeName: { type: 'string', description: 'Name for the camera' },
@@ -2629,7 +2600,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               parentPath: { type: 'string', description: 'Parent node path' },
               nodeName: { type: 'string', description: 'Name for AnimationTree' },
@@ -2645,7 +2616,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
               stateName: { type: 'string', description: 'Name for the state' },
@@ -2661,7 +2632,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
               fromState: { type: 'string', description: 'Source state name' },
@@ -2678,7 +2649,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
               parameterPath: { type: 'string', description: 'Parameter path (e.g., "parameters/idle/active")' },
@@ -2694,7 +2665,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               themePath: { type: 'string', description: 'Path to save the theme' },
               baseThemePath: { type: 'string', description: 'Optional path to base theme to extend' },
             },
@@ -2707,7 +2678,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               themePath: { type: 'string', description: 'Path to the theme resource' },
               controlType: { type: 'string', description: 'Control type (Button, Label, etc.)' },
               colorName: { type: 'string', description: 'Color name (font_color, etc.)' },
@@ -2722,7 +2693,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               themePath: { type: 'string', description: 'Path to the theme resource' },
               controlType: { type: 'string', description: 'Control type (Button, Label, etc.)' },
               fontSizeName: { type: 'string', description: 'Font size name' },
@@ -2737,7 +2708,7 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project' },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
               scenePath: { type: 'string', description: 'Path to the scene file' },
               nodePath: { type: 'string', description: 'Path to the Control node' },
               themePath: { type: 'string', description: 'Path to the Theme resource' },
@@ -2921,8 +2892,6 @@ class GodotServer {
           return await this.handleAddNode(request.params.arguments);
         case 'load_sprite':
           return await this.handleLoadSprite(request.params.arguments);
-        case 'export_mesh_library':
-          return await this.handleExportMeshLibrary(request.params.arguments);
         case 'save_scene':
           return await this.handleSaveScene(request.params.arguments);
         case 'get_uid':
@@ -3890,101 +3859,6 @@ class GodotServer {
     } catch (error: any) {
       return this.createErrorResponse(
         `Failed to load sprite: ${error?.message || 'Unknown error'}`,
-        [
-          'Ensure Godot is installed correctly',
-          'Check if the GODOT_PATH environment variable is set correctly',
-          'Verify the project path is accessible',
-        ]
-      );
-    }
-  }
-
-  /**
-   * Handle the export_mesh_library tool
-   */
-  private async handleExportMeshLibrary(args: any) {
-    // Normalize parameters to camelCase
-    args = this.normalizeParameters(args);
-    
-    if (!args.projectPath || !args.scenePath || !args.outputPath) {
-      return this.createErrorResponse(
-        'Missing required parameters',
-        ['Provide projectPath, scenePath, and outputPath']
-      );
-    }
-
-    if (
-      !this.validatePath(args.projectPath) ||
-      !this.validatePath(args.scenePath) ||
-      !this.validatePath(args.outputPath)
-    ) {
-      return this.createErrorResponse(
-        'Invalid path',
-        ['Provide valid paths without ".." or other potentially unsafe characters']
-      );
-    }
-
-    try {
-      // Check if the project directory exists and contains a project.godot file
-      const projectFile = join(args.projectPath, 'project.godot');
-      if (!existsSync(projectFile)) {
-        return this.createErrorResponse(
-          `Not a valid Godot project: ${args.projectPath}`,
-          [
-            'Ensure the path points to a directory containing a project.godot file',
-            'Use list_projects to find valid Godot projects',
-          ]
-        );
-      }
-
-      // Check if the scene file exists
-      const scenePath = join(args.projectPath, args.scenePath);
-      if (!existsSync(scenePath)) {
-        return this.createErrorResponse(
-          `Scene file does not exist: ${args.scenePath}`,
-          [
-            'Ensure the scene path is correct',
-            'Use create_scene to create a new scene first',
-          ]
-        );
-      }
-
-      // Prepare parameters for the operation (already in camelCase)
-      const params: any = {
-        scenePath: args.scenePath,
-        outputPath: args.outputPath,
-      };
-
-      // Add optional parameters
-      if (args.meshItemNames && Array.isArray(args.meshItemNames)) {
-        params.meshItemNames = args.meshItemNames;
-      }
-
-      // Execute the operation
-      const { stdout, stderr } = await this.executeOperation('export_mesh_library', params, args.projectPath);
-
-      if (stderr && stderr.includes('Failed to')) {
-        return this.createErrorResponse(
-          `Failed to export mesh library: ${stderr}`,
-          [
-            'Check if the scene contains valid 3D meshes',
-            'Ensure the output path is valid',
-            'Verify the scene file is valid',
-          ]
-        );
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `MeshLibrary exported successfully to: ${args.outputPath}\n\nOutput: ${stdout}`,
-          },
-        ],
-      };
-    } catch (error: any) {
-      return this.createErrorResponse(
-        `Failed to export mesh library: ${error?.message || 'Unknown error'}`,
         [
           'Ensure Godot is installed correctly',
           'Check if the GODOT_PATH environment variable is set correctly',
