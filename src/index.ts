@@ -23,6 +23,8 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 
+import { PRIORITY_1_TOOLS, handlePriority1Tools } from './tools.js';
+
 // Check if debug mode is enabled
 const DEBUG_MODE: boolean = process.env.DEBUG === 'true';
 const GODOT_DEBUG_MODE: boolean = true; // Always use GODOT DEBUG MODE
@@ -687,6 +689,7 @@ class GodotServer {
     // Define available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
+        ...PRIORITY_1_TOOLS,
         {
           name: 'launch_editor',
           description: 'Opens the Godot editor GUI for a project. Use when visual inspection or manual editing of scenes/scripts is needed. Opens a new window on the host system. Requires: project directory with project.godot file.',
