@@ -14,6 +14,8 @@ import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 
+import { createServer, IncomingMessage, ServerResponse } from 'http';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -28,6 +30,7 @@ import { PRIORITY_1_TOOLS, handlePriority1Tools } from './tools.js';
 // Check if debug mode is enabled
 const DEBUG_MODE: boolean = process.env.DEBUG === 'true';
 const GODOT_DEBUG_MODE: boolean = true; // Always use GODOT DEBUG MODE
+const HEALTH_PORT: number = parseInt(process.env.MCP_HEALTH_PORT || '8080', 10);
 
 const execAsync = promisify(exec);
 
@@ -689,7 +692,6 @@ class GodotServer {
     // Define available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
-        ...PRIORITY_1_TOOLS,
         {
           name: 'launch_editor',
           description: 'Opens the Godot editor GUI for a project. Use when visual inspection or manual editing of scenes/scripts is needed. Opens a new window on the host system. Requires: project directory with project.godot file.',
@@ -811,7 +813,7 @@ class GodotServer {
         },
         {
           name: 'add_node',
-          description: 'Adds a new node to an existing scene file. Use to programmatically build scene hierarchies. The scene is saved automatically after modification. Use list_scene_nodes first to see current structure.',
+          description: 'Adds ANY node type to an existing scene. This is the universal node creation tool — replaces all specialized create_* node tools. Supports ALL ClassDB node types (Camera3D, DirectionalLight3D, AudioStreamPlayer, HTTPRequest, RayCast3D, etc.). Set any property via the properties parameter with type conversion support (Vector2, Vector3, Color, etc.). Use query_classes to discover available node types. Use query_class_info to discover available properties for a type.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -1679,7 +1681,7 @@ class GodotServer {
         // ============================================
         {
           name: 'create_resource',
-          description: 'Creates a custom Resource file (.tres). Use for data containers like item stats, character configs, or level data. Can attach custom scripts.',
+          description: 'Creates ANY resource type as a .tres file. This is the universal resource creation tool — replaces all specialized create_* resource tools (PhysicsMaterial, Environment, Theme, etc.). Supports ALL ClassDB resource types. Set any property via the properties parameter with type conversion support. Use query_classes with category "resource" to discover available resource types. Use query_class_info to discover available properties.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -2349,135 +2351,8 @@ class GodotServer {
             required: ['projectPath', 'busIndex', 'volumeDb'],
           },
         },
-        {
-          name: 'create_audio_stream_player',
-          description: 'Creates an AudioStreamPlayer node for playing sounds. Choose 2D/3D variants for positional audio.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to scene file (e.g., "scenes/player.tscn")' },
-              parentPath: { type: 'string', description: 'Parent node path (e.g., "Player")' },
-              nodeName: { type: 'string', description: 'Node name (e.g., "FootstepSound", "BGMusic")' },
-              playerType: { type: 'string', enum: ['AudioStreamPlayer', 'AudioStreamPlayer2D', 'AudioStreamPlayer3D'], description: 'Player type: global, 2D positional, or 3D positional' },
-              audioPath: { type: 'string', description: 'Optional: path to audio file to assign' },
-              bus: { type: 'string', description: 'Audio bus name. Default: "Master"' },
-              autoplay: { type: 'boolean', description: 'If true, plays on scene load' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
-          },
-        },
         // ==================== NETWORKING TOOLS ====================
-        {
-          name: 'create_http_request',
-          description: 'Creates an HTTPRequest node for web API calls. Use for leaderboards, cloud saves, REST APIs.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Node name (e.g., "LeaderboardAPI")' },
-              timeout: { type: 'number', description: 'Request timeout in seconds' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
-          },
-        },
-        {
-          name: 'create_multiplayer_spawner',
-          description: 'Creates a MultiplayerSpawner for network object replication. Use for spawning players, projectiles, items in multiplayer.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Node name (e.g., "PlayerSpawner")' },
-              spawnPath: { type: 'string', description: 'Node path where spawned objects appear' },
-              spawnableScenes: { type: 'array', items: { type: 'string' }, description: 'Array of scene paths that can be spawned' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
-          },
-        },
-        {
-          name: 'create_multiplayer_synchronizer',
-          description: 'Creates a MultiplayerSynchronizer for property replication. Use to sync player position, health, state across network.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Node name (e.g., "PositionSync")' },
-              rootPath: { type: 'string', description: 'Node to sync properties from' },
-              replicationInterval: { type: 'number', description: 'Sync interval in seconds' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
-          },
-        },
         // ==================== PHYSICS TOOLS ====================
-        {
-          name: 'configure_physics_layer',
-          description: 'Names a physics collision layer for easier debugging. Use to organize collision groups (Player, Enemy, World, etc.)',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              layerType: { type: 'string', enum: ['2d', '3d'], description: 'One of: 2d, 3d' },
-              layerIndex: { type: 'number', description: 'Layer number (1-32)' },
-              layerName: { type: 'string', description: 'Descriptive name (e.g., "Player", "Enemy", "Projectile")' },
-            },
-            required: ['projectPath', 'layerType', 'layerIndex', 'layerName'],
-          },
-        },
-        {
-          name: 'create_physics_material',
-          description: 'Creates a PhysicsMaterial for surface properties. Use for ice (low friction), rubber (high bounce), etc.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              materialPath: { type: 'string', description: 'Output path (e.g., "resources/ice_physics.tres")' },
-              friction: { type: 'number', description: 'Friction coefficient (0-1). Default: 1.0' },
-              bounce: { type: 'number', description: 'Bounciness (0-1). Default: 0.0' },
-              rough: { type: 'boolean', description: 'Use rough friction mode' },
-              absorbent: { type: 'boolean', description: 'Absorb bounce energy' },
-            },
-            required: ['projectPath', 'materialPath'],
-          },
-        },
-        {
-          name: 'create_raycast',
-          description: 'Creates a RayCast node for line-of-sight checks. Use for ground detection, shooting, AI vision.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Node name (e.g., "GroundCheck", "AimRay")' },
-              is3D: { type: 'boolean', description: 'If true, creates RayCast3D. Default: false (2D)' },
-              targetPosition: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' } }, description: 'Ray end point {x, y, z}' },
-              collisionMask: { type: 'number', description: 'Collision mask bits' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
-          },
-        },
-        {
-          name: 'set_collision_layer_mask',
-          description: 'Sets collision layer and mask on a physics body. Use to control what objects can collide with each other.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to scene file' },
-              nodePath: { type: 'string', description: 'Path to physics body node' },
-              collisionLayer: { type: 'number', description: 'Layer bits (what this object IS)' },
-              collisionMask: { type: 'number', description: 'Mask bits (what this object DETECTS)' },
-            },
-            required: ['projectPath', 'scenePath', 'nodePath'],
-          },
-        },
         // ==================== NAVIGATION TOOLS ====================
         {
           name: 'create_navigation_region',
@@ -2511,91 +2386,7 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
           },
         },
-        {
-          name: 'configure_navigation_layers',
-          description: 'Set navigation layer names in project settings',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              is3D: { type: 'boolean', description: 'Configure 3D navigation layers' },
-              layerIndex: { type: 'number', description: 'Layer index (1-32)' },
-              layerName: { type: 'string', description: 'Name for the layer' },
-            },
-            required: ['projectPath', 'layerIndex', 'layerName'],
-          },
-        },
         // ==================== RENDERING TOOLS ====================
-        {
-          name: 'create_environment',
-          description: 'Create an Environment resource',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              resourcePath: { type: 'string', description: 'Path to save the environment' },
-              backgroundMode: { type: 'string', enum: ['sky', 'color', 'canvas'], description: 'Background mode' },
-              backgroundColor: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' } }, description: 'Background color' },
-              ambientLightColor: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' } }, description: 'Ambient light color' },
-              ambientLightEnergy: { type: 'number', description: 'Ambient light energy' },
-              tonemapMode: { type: 'string', enum: ['linear', 'reinhard', 'filmic', 'aces'], description: 'Tonemap mode' },
-              glowEnabled: { type: 'boolean', description: 'Enable glow effect' },
-              fogEnabled: { type: 'boolean', description: 'Enable volumetric fog' },
-            },
-            required: ['projectPath', 'resourcePath'],
-          },
-        },
-        {
-          name: 'create_world_environment',
-          description: 'Create a WorldEnvironment node in a scene',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the WorldEnvironment' },
-              environmentPath: { type: 'string', description: 'Path to Environment resource' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
-          },
-        },
-        {
-          name: 'create_light',
-          description: 'Create a light node (DirectionalLight3D, OmniLight3D, SpotLight3D, etc.)',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the light' },
-              lightType: { type: 'string', enum: ['DirectionalLight3D', 'OmniLight3D', 'SpotLight3D', 'DirectionalLight2D', 'PointLight2D'], description: 'Type of light' },
-              color: { type: 'object', properties: { r: { type: 'number' }, g: { type: 'number' }, b: { type: 'number' } }, description: 'Light color' },
-              energy: { type: 'number', description: 'Light energy/intensity' },
-              shadowEnabled: { type: 'boolean', description: 'Enable shadows' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName', 'lightType'],
-          },
-        },
-        {
-          name: 'create_camera',
-          description: 'Create a Camera2D or Camera3D node',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              parentPath: { type: 'string', description: 'Parent node path' },
-              nodeName: { type: 'string', description: 'Name for the camera' },
-              is3D: { type: 'boolean', description: 'Use Camera3D (default: false for 2D)' },
-              current: { type: 'boolean', description: 'Set as current camera' },
-              fov: { type: 'number', description: 'Field of view (3D only)' },
-              zoom: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' } }, description: 'Camera zoom (2D only)' },
-            },
-            required: ['projectPath', 'scenePath', 'parentPath', 'nodeName'],
-          },
-        },
         // ==================== ANIMATION TREE TOOLS ====================
         {
           name: 'create_animation_tree',
@@ -2646,35 +2437,7 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'animTreePath', 'fromState', 'toState'],
           },
         },
-        {
-          name: 'set_animation_tree_parameter',
-          description: 'Set a parameter on an AnimationTree',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              animTreePath: { type: 'string', description: 'Path to AnimationTree node' },
-              parameterPath: { type: 'string', description: 'Parameter path (e.g., "parameters/idle/active")' },
-              value: { type: 'string', description: 'Parameter value (number, boolean, or string - Godot handles type conversion)' },
-            },
-            required: ['projectPath', 'scenePath', 'animTreePath', 'parameterPath', 'value'],
-          },
-        },
         // ==================== UI/THEME TOOLS ====================
-        {
-          name: 'create_theme',
-          description: 'Create a Theme resource',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              themePath: { type: 'string', description: 'Path to save the theme' },
-              baseThemePath: { type: 'string', description: 'Optional path to base theme to extend' },
-            },
-            required: ['projectPath', 'themePath'],
-          },
-        },
         {
           name: 'set_theme_color',
           description: 'Set a color in a Theme resource',
@@ -2705,51 +2468,7 @@ class GodotServer {
             required: ['projectPath', 'themePath', 'controlType', 'fontSizeName', 'size'],
           },
         },
-        {
-          name: 'apply_theme_to_node',
-          description: 'Apply a Theme to a Control node in a scene',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot. Use the same path across all tool calls in a workflow.' },
-              scenePath: { type: 'string', description: 'Path to the scene file' },
-              nodePath: { type: 'string', description: 'Path to the Control node' },
-              themePath: { type: 'string', description: 'Path to the Theme resource' },
-            },
-            required: ['projectPath', 'scenePath', 'nodePath', 'themePath'],
-          },
-        },
         // ==================== THEME BUILDER TOOLS ====================
-        {
-          name: 'fetch_polyhaven_asset',
-          description: 'Download 3D model or texture from Poly Haven by keyword search. Returns CC0-licensed assets.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectPath: { type: 'string', description: 'Path to the Godot project directory' },
-              keyword: { type: 'string', description: 'Search term (e.g., "castle", "tree", "rock")' },
-              assetType: { 
-                type: 'string', 
-                enum: ['models', 'textures', 'hdris'],
-                description: 'Type of asset to fetch (default: models)' 
-              },
-              resolution: { 
-                type: 'string', 
-                enum: ['1k', '2k', '4k'],
-                description: 'Resolution for download (default: 2k)' 
-              },
-              targetFolder: { 
-                type: 'string', 
-                description: 'Target folder for download (default: downloaded_assets/polyhaven)' 
-              },
-              maxResults: {
-                type: 'number',
-                description: 'Maximum number of results to return (default: 5)'
-              },
-            },
-            required: ['projectPath', 'keyword'],
-          },
-        },
         {
           name: 'apply_theme_shader',
           description: 'Generate and apply theme-appropriate shader to a material in a scene',
@@ -2777,29 +2496,58 @@ class GodotServer {
             required: ['projectPath', 'scenePath', 'nodePath', 'theme'],
           },
         },
+        // ==================== CLASSDB INTROSPECTION TOOLS ====================
         {
-          name: 'list_polyhaven_assets',
-          description: 'Search and list available assets from Poly Haven without downloading',
+          name: 'query_classes',
+          description: 'Query available Godot classes from ClassDB with filtering. Use to discover node types, resource types, or any class before using add_node/create_resource. Categories: node, node2d, node3d, control, resource, physics, physics2d, audio, visual, animation.',
           inputSchema: {
             type: 'object',
             properties: {
-              keyword: { type: 'string', description: 'Search term' },
-              assetType: { 
-                type: 'string', 
-                enum: ['models', 'textures', 'hdris'],
-                description: 'Type of asset to search (default: models)' 
-              },
-              categories: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Filter by categories'
-              },
-              maxResults: {
-                type: 'number',
-                description: 'Maximum number of results (default: 10)'
-              },
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              filter: { type: 'string', description: 'Optional: substring filter for class names (case-insensitive, e.g., "light", "collision")' },
+              category: { type: 'string', description: 'Optional: filter by category (node, node2d, node3d, control, resource, physics, physics2d, audio, visual, animation)' },
+              instantiableOnly: { type: 'boolean', description: 'If true, only return classes that can be instantiated (default: false)' },
             },
-            required: ['keyword'],
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'query_class_info',
+          description: 'Get detailed information about a specific Godot class: methods, properties, signals, enums. Use to discover available properties before calling add_node/create_resource/set_node_properties, or to find methods before call_runtime_method.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              className: { type: 'string', description: 'Exact Godot class name (e.g., "CharacterBody3D", "StandardMaterial3D", "AnimationPlayer")' },
+              includeInherited: { type: 'boolean', description: 'If true, include inherited members from parent classes (default: false — shows only class-specific members)' },
+            },
+            required: ['projectPath', 'className'],
+          },
+        },
+        {
+          name: 'inspect_inheritance',
+          description: 'Inspect class inheritance hierarchy: ancestors, direct children, all descendants. Use to understand class relationships and find specialized alternatives.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              className: { type: 'string', description: 'Exact Godot class name to inspect' },
+            },
+            required: ['projectPath', 'className'],
+          },
+        },
+        // ==================== RESOURCE MODIFICATION TOOL ====================
+        {
+          name: 'modify_resource',
+          description: 'Modify properties of an existing resource file (.tres/.res). Use to update materials, environments, themes, or any saved resource without recreating it.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              resourcePath: { type: 'string', description: 'Path to existing resource file relative to project (e.g., "materials/player.tres")' },
+              properties: { type: 'string', description: 'JSON object of properties to set (e.g., {"albedo_color": {"_type": "Color", "r": 1, "g": 0, "b": 0, "a": 1}})' },
+            },
+            required: ['projectPath', 'resourcePath', 'properties'],
           },
         },
         // ==================== MULTI-SOURCE ASSET TOOLS ====================
@@ -3015,40 +2763,14 @@ class GodotServer {
           return await this.handleSetAudioBusEffect(request.params.arguments);
         case 'set_audio_bus_volume':
           return await this.handleSetAudioBusVolume(request.params.arguments);
-        case 'create_audio_stream_player':
-          return await this.handleCreateAudioStreamPlayer(request.params.arguments);
         // Networking Tools handlers
-        case 'create_http_request':
-          return await this.handleCreateHttpRequest(request.params.arguments);
-        case 'create_multiplayer_spawner':
-          return await this.handleCreateMultiplayerSpawner(request.params.arguments);
-        case 'create_multiplayer_synchronizer':
-          return await this.handleCreateMultiplayerSynchronizer(request.params.arguments);
         // Physics Tools handlers
-        case 'configure_physics_layer':
-          return await this.handleConfigurePhysicsLayer(request.params.arguments);
-        case 'create_physics_material':
-          return await this.handleCreatePhysicsMaterial(request.params.arguments);
-        case 'create_raycast':
-          return await this.handleCreateRaycast(request.params.arguments);
-        case 'set_collision_layer_mask':
-          return await this.handleSetCollisionLayerMask(request.params.arguments);
         // Navigation Tools handlers
         case 'create_navigation_region':
           return await this.handleCreateNavigationRegion(request.params.arguments);
         case 'create_navigation_agent':
           return await this.handleCreateNavigationAgent(request.params.arguments);
-        case 'configure_navigation_layers':
-          return await this.handleConfigureNavigationLayers(request.params.arguments);
         // Rendering Tools handlers
-        case 'create_environment':
-          return await this.handleCreateEnvironment(request.params.arguments);
-        case 'create_world_environment':
-          return await this.handleCreateWorldEnvironment(request.params.arguments);
-        case 'create_light':
-          return await this.handleCreateLight(request.params.arguments);
-        case 'create_camera':
-          return await this.handleCreateCamera(request.params.arguments);
         // Animation Tree Tools handlers
         case 'create_animation_tree':
           return await this.handleCreateAnimationTree(request.params.arguments);
@@ -3056,29 +2778,29 @@ class GodotServer {
           return await this.handleAddAnimationState(request.params.arguments);
         case 'connect_animation_states':
           return await this.handleConnectAnimationStates(request.params.arguments);
-        case 'set_animation_tree_parameter':
-          return await this.handleSetAnimationTreeParameter(request.params.arguments);
         // UI/Theme Tools handlers
-        case 'create_theme':
-          return await this.handleCreateTheme(request.params.arguments);
         case 'set_theme_color':
           return await this.handleSetThemeColor(request.params.arguments);
         case 'set_theme_font_size':
           return await this.handleSetThemeFontSize(request.params.arguments);
-        case 'apply_theme_to_node':
-          return await this.handleApplyThemeToNode(request.params.arguments);
-        case 'fetch_polyhaven_asset':
-          return await this.handleFetchPolyhavenAsset(request.params.arguments);
         case 'apply_theme_shader':
           return await this.handleApplyThemeShader(request.params.arguments);
-        case 'list_polyhaven_assets':
-          return await this.handleListPolyhavenAssets(request.params.arguments);
         case 'search_assets':
           return await this.handleSearchAssets(request.params.arguments);
         case 'fetch_asset':
           return await this.handleFetchAsset(request.params.arguments);
         case 'list_asset_providers':
           return await this.handleListAssetProviders();
+        // ClassDB Introspection Tools
+        case 'query_classes':
+          return await this.handleQueryClasses(request.params.arguments);
+        case 'query_class_info':
+          return await this.handleQueryClassInfo(request.params.arguments);
+        case 'inspect_inheritance':
+          return await this.handleInspectInheritance(request.params.arguments);
+        // Resource Modification Tool
+        case 'modify_resource':
+          return await this.handleModifyResource(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -6925,11 +6647,90 @@ class GodotServer {
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
       console.error('Godot MCP server running on stdio');
+
+      this.startHealthServer();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[SERVER] Failed to start:', errorMessage);
       process.exit(1);
     }
+  }
+
+  /**
+   * Start a lightweight HTTP server for health checks from Godot editor plugin.
+   * Supports GET /health and POST / (MCP initialize handshake).
+   */
+  private startHealthServer(): void {
+    const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
+        const payload = {
+          status: 'ok',
+          serverName: 'godot-mcp',
+          version: '1.1.0',
+          godotPath: this.godotPath,
+          uptime: process.uptime(),
+          timestamp: new Date().toISOString(),
+        };
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(payload));
+        return;
+      }
+
+      if (req.method === 'POST' && (req.url === '/' || req.url === '/mcp')) {
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const parsed = JSON.parse(body);
+            if (parsed.method === 'initialize') {
+              const response = {
+                jsonrpc: '2.0',
+                id: parsed.id ?? 1,
+                result: {
+                  protocolVersion: parsed.params?.protocolVersion || '2025-06-18',
+                  capabilities: {},
+                  serverInfo: { name: 'godot-mcp', version: '1.1.0' },
+                },
+              };
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(response));
+              return;
+            }
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unsupported method' }));
+          } catch {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          }
+        });
+        return;
+      }
+
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Not found' }));
+    });
+
+    httpServer.listen(HEALTH_PORT, () => {
+      console.error(`[SERVER] Health endpoint: http://localhost:${HEALTH_PORT}/health`);
+    });
+
+    httpServer.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`[SERVER] Port ${HEALTH_PORT} in use — health endpoint disabled`);
+      } else {
+        console.error(`[SERVER] Health endpoint error: ${err.message}`);
+      }
+    });
   }
 
   // ============================================
@@ -7176,196 +6977,13 @@ class GodotServer {
     }
   }
 
-  private async handleCreateAudioStreamPlayer(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        playerType: args.playerType || 'AudioStreamPlayer',
-        audioPath: args.audioPath || '',
-        bus: args.bus || 'Master',
-        autoplay: args.autoplay || false,
-      };
-      const { stdout, stderr } = await this.executeOperation('create_audio_stream_player', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create audio stream player: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `AudioStreamPlayer '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create audio stream player: ${error?.message}`, []);
-    }
-  }
-
   // ============================================
   // Networking Handlers
   // ============================================
 
-  private async handleCreateHttpRequest(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        timeout: args.timeout || 10,
-      };
-      const { stdout, stderr } = await this.executeOperation('create_http_request', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create HTTPRequest: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `HTTPRequest '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create HTTPRequest: ${error?.message}`, []);
-    }
-  }
-
-  private async handleCreateMultiplayerSpawner(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        spawnPath: args.spawnPath || '',
-        spawnableScenes: args.spawnableScenes || [],
-      };
-      const { stdout, stderr } = await this.executeOperation('create_multiplayer_spawner', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create MultiplayerSpawner: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `MultiplayerSpawner '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create MultiplayerSpawner: ${error?.message}`, []);
-    }
-  }
-
-  private async handleCreateMultiplayerSynchronizer(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        rootPath: args.rootPath || '',
-        replicationInterval: args.replicationInterval || 0.0,
-      };
-      const { stdout, stderr } = await this.executeOperation('create_multiplayer_synchronizer', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create MultiplayerSynchronizer: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `MultiplayerSynchronizer '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create MultiplayerSynchronizer: ${error?.message}`, []);
-    }
-  }
-
   // ============================================
   // Physics Handlers
   // ============================================
-
-  private async handleConfigurePhysicsLayer(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.layerType || !args.layerIndex || !args.layerName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, layerType, layerIndex, and layerName']);
-    }
-    try {
-      const params = {
-        layerType: args.layerType,
-        layerIndex: args.layerIndex,
-        layerName: args.layerName,
-      };
-      const { stdout, stderr } = await this.executeOperation('configure_physics_layer', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to configure physics layer: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Physics layer ${args.layerIndex} named '${args.layerName}'.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to configure physics layer: ${error?.message}`, []);
-    }
-  }
-
-  private async handleCreatePhysicsMaterial(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.materialPath) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and materialPath']);
-    }
-    try {
-      const params = {
-        materialPath: args.materialPath,
-        friction: args.friction !== undefined ? args.friction : 1.0,
-        bounce: args.bounce !== undefined ? args.bounce : 0.0,
-        rough: args.rough || false,
-        absorbent: args.absorbent || false,
-      };
-      const { stdout, stderr } = await this.executeOperation('create_physics_material', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create physics material: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `PhysicsMaterial created at '${args.materialPath}'.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create physics material: ${error?.message}`, []);
-    }
-  }
-
-  private async handleCreateRaycast(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        is3D: args.is3D || false,
-        targetPosition: args.targetPosition || { x: 0, y: 100, z: 0 },
-        collisionMask: args.collisionMask || 1,
-      };
-      const { stdout, stderr } = await this.executeOperation('create_raycast', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create raycast: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `RayCast '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create raycast: ${error?.message}`, []);
-    }
-  }
-
-  private async handleSetCollisionLayerMask(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.nodePath) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, and nodePath']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        nodePath: args.nodePath,
-        collisionLayer: args.collisionLayer || 1,
-        collisionMask: args.collisionMask || 1,
-      };
-      const { stdout, stderr } = await this.executeOperation('set_collision_layer_mask', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to set collision layer/mask: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Collision layer/mask updated.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to set collision layer/mask: ${error?.message}`, []);
-    }
-  }
 
   // ============================================
   // Navigation Handlers
@@ -7417,128 +7035,9 @@ class GodotServer {
     }
   }
 
-  private async handleConfigureNavigationLayers(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.layerIndex || !args.layerName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, layerIndex, and layerName']);
-    }
-    try {
-      const params = {
-        is3D: args.is3D || false,
-        layerIndex: args.layerIndex,
-        layerName: args.layerName,
-      };
-      const { stdout, stderr } = await this.executeOperation('configure_navigation_layers', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to configure navigation layers: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Navigation layer ${args.layerIndex} named '${args.layerName}'.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to configure navigation layers: ${error?.message}`, []);
-    }
-  }
-
   // ============================================
   // Rendering Handlers
   // ============================================
-
-  private async handleCreateEnvironment(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.resourcePath) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and resourcePath']);
-    }
-    try {
-      const params = {
-        resourcePath: args.resourcePath,
-        backgroundMode: args.backgroundMode || 'sky',
-        backgroundColor: args.backgroundColor || { r: 0.3, g: 0.3, b: 0.3 },
-        ambientLightColor: args.ambientLightColor || { r: 1.0, g: 1.0, b: 1.0 },
-        ambientLightEnergy: args.ambientLightEnergy || 1.0,
-        tonemapMode: args.tonemapMode || 'linear',
-        glowEnabled: args.glowEnabled || false,
-        fogEnabled: args.fogEnabled || false,
-      };
-      const { stdout, stderr } = await this.executeOperation('create_environment', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create environment: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Environment created at '${args.resourcePath}'.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create environment: ${error?.message}`, []);
-    }
-  }
-
-  private async handleCreateWorldEnvironment(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        environmentPath: args.environmentPath || '',
-      };
-      const { stdout, stderr } = await this.executeOperation('create_world_environment', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create WorldEnvironment: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `WorldEnvironment '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create WorldEnvironment: ${error?.message}`, []);
-    }
-  }
-
-  private async handleCreateLight(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName || !args.lightType) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, nodeName, and lightType']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        lightType: args.lightType,
-        color: args.color || { r: 1.0, g: 1.0, b: 1.0 },
-        energy: args.energy || 1.0,
-        shadowEnabled: args.shadowEnabled || false,
-      };
-      const { stdout, stderr } = await this.executeOperation('create_light', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create light: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `${args.lightType} '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create light: ${error?.message}`, []);
-    }
-  }
-
-  private async handleCreateCamera(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.parentPath || !args.nodeName) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, parentPath, and nodeName']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        parentPath: args.parentPath,
-        nodeName: args.nodeName,
-        is3D: args.is3D || false,
-        current: args.current || false,
-        fov: args.fov || 75,
-        zoom: args.zoom || { x: 1, y: 1 },
-      };
-      const { stdout, stderr } = await this.executeOperation('create_camera', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create camera: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Camera '${args.nodeName}' created successfully.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create camera: ${error?.message}`, []);
-    }
-  }
 
   // ============================================
   // Animation Tree Handlers
@@ -7614,51 +7113,9 @@ class GodotServer {
     }
   }
 
-  private async handleSetAnimationTreeParameter(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.animTreePath || !args.parameterPath || args.value === undefined) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, animTreePath, parameterPath, and value']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        animTreePath: args.animTreePath,
-        parameterPath: args.parameterPath,
-        value: args.value,
-      };
-      const { stdout, stderr } = await this.executeOperation('set_animation_tree_parameter', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to set animation tree parameter: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Parameter '${args.parameterPath}' set to ${args.value}.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to set animation tree parameter: ${error?.message}`, []);
-    }
-  }
-
   // ============================================
   // UI/Theme Handlers
   // ============================================
-
-  private async handleCreateTheme(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.themePath) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and themePath']);
-    }
-    try {
-      const params = {
-        themePath: args.themePath,
-        baseThemePath: args.baseThemePath || '',
-      };
-      const { stdout, stderr } = await this.executeOperation('create_theme', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to create theme: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Theme created at '${args.themePath}'.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to create theme: ${error?.message}`, []);
-    }
-  }
 
   private async handleSetThemeColor(args: any) {
     args = this.normalizeParameters(args);
@@ -7704,250 +7161,6 @@ class GodotServer {
     }
   }
 
-  private async handleApplyThemeToNode(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.scenePath || !args.nodePath || !args.themePath) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, scenePath, nodePath, and themePath']);
-    }
-    try {
-      const params = {
-        scenePath: args.scenePath,
-        nodePath: args.nodePath,
-        themePath: args.themePath,
-      };
-      const { stdout, stderr } = await this.executeOperation('apply_theme_to_node', params, args.projectPath);
-      if (stderr && stderr.includes('ERROR')) {
-        return this.createErrorResponse(`Failed to apply theme to node: ${stderr}`, []);
-      }
-      return { content: [{ type: 'text', text: `Theme applied to '${args.nodePath}'.\n\n${stdout.trim()}` }] };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to apply theme to node: ${error?.message}`, []);
-    }
-  }
-
-  private async handleFetchPolyhavenAsset(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.projectPath || !args.keyword) {
-      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and keyword']);
-    }
-    if (!this.validatePath(args.projectPath)) {
-      return this.createErrorResponse('Invalid path', ['Provide a valid project path']);
-    }
-
-    try {
-      const projectFile = join(args.projectPath, 'project.godot');
-      if (!existsSync(projectFile)) {
-        return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, [
-          'Ensure the path contains a project.godot file',
-        ]);
-      }
-
-      const assetType = args.assetType || 'models';
-      const resolution = args.resolution || '2k';
-      const targetFolder = args.targetFolder || 'downloaded_assets/polyhaven';
-      const maxResults = args.maxResults || 5;
-
-      const searchUrl = `https://api.polyhaven.com/assets?t=${assetType}`;
-      const https = await import('https');
-      
-      const searchAssets = (): Promise<any> => {
-        return new Promise((resolve, reject) => {
-          https.get(searchUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (res: any) => {
-            let data = '';
-            res.on('data', (chunk: string) => data += chunk);
-            res.on('end', () => {
-              try {
-                resolve(JSON.parse(data));
-              } catch (e) {
-                reject(e);
-              }
-            });
-          }).on('error', reject);
-        });
-      };
-
-      const allAssets = await searchAssets();
-      const keyword = args.keyword.toLowerCase();
-      
-      const matches: Array<{id: string; name: string; score: number; categories: string[]}> = [];
-      
-      for (const [assetId, assetData] of Object.entries(allAssets) as [string, any][]) {
-        let score = 0;
-        
-        if (assetId.toLowerCase().includes(keyword)) {
-          score += 100;
-        }
-        
-        if (assetData.name && assetData.name.toLowerCase().includes(keyword)) {
-          score += 80;
-        }
-        
-        if (assetData.tags) {
-          for (const tag of assetData.tags) {
-            if (tag.toLowerCase().includes(keyword)) {
-              score += 50;
-            }
-          }
-        }
-        
-        if (assetData.categories) {
-          for (const cat of assetData.categories) {
-            if (cat.toLowerCase().includes(keyword)) {
-              score += 30;
-            }
-          }
-        }
-        
-        if (score > 0) {
-          matches.push({
-            id: assetId,
-            name: assetData.name || assetId,
-            score,
-            categories: assetData.categories || [],
-          });
-        }
-      }
-      
-      matches.sort((a, b) => b.score - a.score);
-      const topMatches = matches.slice(0, maxResults);
-      
-      if (topMatches.length === 0) {
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              message: `No assets found matching "${args.keyword}"`,
-              suggestions: [
-                'Try broader search terms',
-                'Check available categories at polyhaven.com',
-              ],
-            }, null, 2),
-          }],
-        };
-      }
-      
-      const bestMatch = topMatches[0];
-      
-      const getFileInfo = (assetId: string): Promise<any> => {
-        return new Promise((resolve, reject) => {
-          const fileUrl = `https://api.polyhaven.com/files/${assetId}`;
-          https.get(fileUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (res: any) => {
-            let data = '';
-            res.on('data', (chunk: string) => data += chunk);
-            res.on('end', () => {
-              try {
-                resolve(JSON.parse(data));
-              } catch (e) {
-                reject(e);
-              }
-            });
-          }).on('error', reject);
-        });
-      };
-      
-      const fileInfo = await getFileInfo(bestMatch.id);
-      
-      let downloadUrl = '';
-      let fileExtension = '.glb';
-      
-      if (assetType === 'models') {
-        if (fileInfo.gltf && fileInfo.gltf[resolution]) {
-          downloadUrl = fileInfo.gltf[resolution].gltf?.url || '';
-        } else if (fileInfo.gltf) {
-          const availableRes = Object.keys(fileInfo.gltf)[0];
-          downloadUrl = fileInfo.gltf[availableRes]?.gltf?.url || '';
-        }
-      } else if (assetType === 'textures') {
-        fileExtension = '.png';
-        if (fileInfo.Diffuse && fileInfo.Diffuse[resolution]) {
-          downloadUrl = fileInfo.Diffuse[resolution].png?.url || '';
-        }
-      } else if (assetType === 'hdris') {
-        fileExtension = '.hdr';
-        if (fileInfo.hdri && fileInfo.hdri[resolution]) {
-          downloadUrl = fileInfo.hdri[resolution].hdr?.url || '';
-        }
-      }
-      
-      if (!downloadUrl) {
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              message: `Asset "${bestMatch.id}" found but download URL not available for ${assetType}/${resolution}`,
-              asset: bestMatch,
-              availableFormats: Object.keys(fileInfo),
-            }, null, 2),
-          }],
-        };
-      }
-      
-      const targetDir = join(args.projectPath, targetFolder);
-      if (!existsSync(targetDir)) {
-        mkdirSync(targetDir, { recursive: true });
-      }
-      
-      const fileName = `${bestMatch.id}${fileExtension}`;
-      const filePath = join(targetDir, fileName);
-      const fs = await import('fs');
-      
-      await new Promise<void>((resolve, reject) => {
-        const file = fs.createWriteStream(filePath);
-        https.get(downloadUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (response: any) => {
-          if (response.statusCode === 302 || response.statusCode === 301) {
-            https.get(response.headers.location, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (redirectRes: any) => {
-              redirectRes.pipe(file);
-              file.on('finish', () => {
-                file.close();
-                resolve();
-              });
-            }).on('error', reject);
-          } else {
-            response.pipe(file);
-            file.on('finish', () => {
-              file.close();
-              resolve();
-            });
-          }
-        }).on('error', reject);
-      });
-      
-      const creditsPath = join(targetDir, 'CREDITS.md');
-      const creditEntry = `\n## ${bestMatch.id}\n- Source: [Poly Haven](https://polyhaven.com/a/${bestMatch.id})\n- License: CC0 (Public Domain)\n- Downloaded: ${new Date().toISOString()}\n`;
-      
-      if (existsSync(creditsPath)) {
-        fs.appendFileSync(creditsPath, creditEntry);
-      } else {
-        fs.writeFileSync(creditsPath, `# Asset Credits\n\nAssets downloaded from Poly Haven (CC0 License)\n${creditEntry}`);
-      }
-      
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            success: true,
-            asset: {
-              id: bestMatch.id,
-              name: bestMatch.name,
-              categories: bestMatch.categories,
-            },
-            downloadedTo: `res://${targetFolder}/${fileName}`,
-            license: 'CC0',
-            attribution: `Asset from Poly Haven: https://polyhaven.com/a/${bestMatch.id}`,
-            otherMatches: topMatches.slice(1).map(m => ({ id: m.id, name: m.name })),
-          }, null, 2),
-        }],
-      };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to fetch Poly Haven asset: ${error?.message}`, [
-        'Check internet connection',
-        'Verify the keyword is valid',
-        'Try a different search term',
-      ]);
-    }
-  }
 
   private async handleApplyThemeShader(args: any) {
     args = this.normalizeParameters(args);
@@ -8179,124 +7392,6 @@ uniform float dissolve_amount : hint_range(0.0, 1.0) = 0.0;
     }
   }
 
-  private async handleListPolyhavenAssets(args: any) {
-    args = this.normalizeParameters(args);
-    if (!args.keyword) {
-      return this.createErrorResponse('Missing required parameter: keyword', []);
-    }
-
-    try {
-      const assetType = args.assetType || 'models';
-      const maxResults = args.maxResults || 10;
-      
-      const searchUrl = `https://api.polyhaven.com/assets?t=${assetType}`;
-      const https = await import('https');
-      
-      const searchAssets = (): Promise<any> => {
-        return new Promise((resolve, reject) => {
-          https.get(searchUrl, { headers: { 'User-Agent': 'GodotMCP/1.0' } }, (res: any) => {
-            let data = '';
-            res.on('data', (chunk: string) => data += chunk);
-            res.on('end', () => {
-              try {
-                resolve(JSON.parse(data));
-              } catch (e) {
-                reject(e);
-              }
-            });
-          }).on('error', reject);
-        });
-      };
-
-      const allAssets = await searchAssets();
-      const keyword = args.keyword.toLowerCase();
-      const categoryFilter = args.categories || [];
-      
-      const matches: Array<{
-        id: string;
-        name: string;
-        score: number;
-        categories: string[];
-        tags: string[];
-      }> = [];
-      
-      for (const [assetId, assetData] of Object.entries(allAssets) as [string, any][]) {
-        let score = 0;
-        
-        if (assetId.toLowerCase().includes(keyword)) {
-          score += 100;
-        }
-        
-        if (assetData.name && assetData.name.toLowerCase().includes(keyword)) {
-          score += 80;
-        }
-        
-        if (assetData.tags) {
-          for (const tag of assetData.tags) {
-            if (tag.toLowerCase().includes(keyword)) {
-              score += 50;
-            }
-          }
-        }
-        
-        if (assetData.categories) {
-          for (const cat of assetData.categories) {
-            if (cat.toLowerCase().includes(keyword)) {
-              score += 30;
-            }
-          }
-          
-          if (categoryFilter.length > 0) {
-            const hasCategory = categoryFilter.some((f: string) => 
-              assetData.categories.some((c: string) => c.toLowerCase().includes(f.toLowerCase()))
-            );
-            if (!hasCategory) {
-              continue;
-            }
-          }
-        }
-        
-        if (score > 0) {
-          matches.push({
-            id: assetId,
-            name: assetData.name || assetId,
-            score,
-            categories: assetData.categories || [],
-            tags: assetData.tags || [],
-          });
-        }
-      }
-      
-      matches.sort((a, b) => b.score - a.score);
-      const results = matches.slice(0, maxResults);
-
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            success: true,
-            query: args.keyword,
-            assetType,
-            totalMatches: matches.length,
-            results: results.map(r => ({
-              id: r.id,
-              name: r.name,
-              categories: r.categories,
-              tags: r.tags.slice(0, 5),
-              previewUrl: `https://cdn.polyhaven.com/asset_img/thumbs/${r.id}.png`,
-              downloadCommand: `fetch_polyhaven_asset(projectPath, keyword="${r.id}")`,
-            })),
-          }, null, 2),
-        }],
-      };
-    } catch (error: any) {
-      return this.createErrorResponse(`Failed to list Poly Haven assets: ${error?.message}`, [
-        'Check internet connection',
-        'Try again later',
-      ]);
-    }
-  }
-
   private async handleSearchAssets(args: any) {
     args = this.normalizeParameters(args);
     if (!args.keyword) {
@@ -8312,7 +7407,7 @@ uniform float dissolve_amount : hint_range(0.0, 1.0) = 0.0;
         maxResults: args.maxResults || 10,
       };
 
-      let results;
+      let results: any[];
       const providerFilter = args.provider || 'all';
       const mode = args.mode || 'parallel';
 
@@ -8445,6 +7540,80 @@ uniform float dissolve_amount : hint_range(0.0, 1.0) = 0.0;
     } catch (error: any) {
       return this.createErrorResponse(`Failed to list providers: ${error?.message}`, []);
     }
+  }
+
+  /**
+   * Handle the query_classes tool — ClassDB introspection
+   */
+  private async handleQueryClasses(args: any) {
+    const projectPath = args?.projectPath || args?.project_path;
+    if (!projectPath) {
+      throw new McpError(ErrorCode.InvalidParams, 'projectPath is required');
+    }
+    const params: Record<string, any> = {};
+    if (args?.filter) params.filter = args.filter;
+    if (args?.category) params.category = args.category;
+    if (args?.instantiableOnly !== undefined) params.instantiable_only = args.instantiableOnly;
+    if (args?.instantiable_only !== undefined) params.instantiable_only = args.instantiable_only;
+    return await this.executeOperation('query_classes', params, projectPath);
+  }
+
+  /**
+   * Handle the query_class_info tool — ClassDB introspection
+   */
+  private async handleQueryClassInfo(args: any) {
+    const projectPath = args?.projectPath || args?.project_path;
+    const className = args?.className || args?.class_name;
+    if (!projectPath) {
+      throw new McpError(ErrorCode.InvalidParams, 'projectPath is required');
+    }
+    if (!className) {
+      throw new McpError(ErrorCode.InvalidParams, 'className is required');
+    }
+    const params: Record<string, any> = {
+      class_name: className,
+    };
+    if (args?.includeInherited !== undefined) params.include_inherited = args.includeInherited;
+    if (args?.include_inherited !== undefined) params.include_inherited = args.include_inherited;
+    return await this.executeOperation('query_class_info', params, projectPath);
+  }
+
+  /**
+   * Handle the inspect_inheritance tool — ClassDB introspection
+   */
+  private async handleInspectInheritance(args: any) {
+    const projectPath = args?.projectPath || args?.project_path;
+    const className = args?.className || args?.class_name;
+    if (!projectPath) {
+      throw new McpError(ErrorCode.InvalidParams, 'projectPath is required');
+    }
+    if (!className) {
+      throw new McpError(ErrorCode.InvalidParams, 'className is required');
+    }
+    return await this.executeOperation('inspect_inheritance', {
+      class_name: className,
+    }, projectPath);
+  }
+
+  /**
+   * Handle the modify_resource tool
+   */
+  private async handleModifyResource(args: any) {
+    const projectPath = args?.projectPath || args?.project_path;
+    const resourcePath = args?.resourcePath || args?.resource_path;
+    if (!projectPath) {
+      throw new McpError(ErrorCode.InvalidParams, 'projectPath is required');
+    }
+    if (!resourcePath) {
+      throw new McpError(ErrorCode.InvalidParams, 'resourcePath is required');
+    }
+    const params: Record<string, any> = {
+      resource_path: resourcePath,
+    };
+    if (args?.properties) {
+      params.properties = typeof args.properties === 'string' ? JSON.parse(args.properties) : args.properties;
+    }
+    return await this.executeOperation('modify_resource', params, projectPath);
   }
 }
 
