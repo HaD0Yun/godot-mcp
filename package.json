@@ -1,19 +1,27 @@
 {
-  "name": "godot-mcp",
-  "version": "1.1.0",
-  "description": "The most comprehensive MCP server for Godot Engine with 60+ tools and Auto Reload plugin for seamless AI-assisted game development.",
+  "name": "gopeak",
+  "version": "2.0.0",
+  "description": "The most comprehensive MCP server for Godot Engine — 78+ tools, MCP Resources, LSP/DAP integration, screenshot capture, and input injection for AI-assisted game development.",
   "type": "module",
+  "main": "./build/index.js",
   "bin": {
+    "gopeak": "./build/index.js",
     "godot-mcp": "./build/index.js"
   },
   "files": [
-    "build"
+    "build",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc && node scripts/build.js",
     "prepare": "npm run build",
     "watch": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "pack": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
@@ -29,17 +37,29 @@
     "type": "git",
     "url": "https://github.com/HaD0Yun/godot-mcp.git"
   },
+  "homepage": "https://github.com/HaD0Yun/godot-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/HaD0Yun/godot-mcp/issues"
+  },
   "author": "HaD0Yun",
   "keywords": [
+    "gopeak",
     "godot",
+    "godot-engine",
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
     "ai",
     "claude",
     "cline",
     "opencode",
     "cursor",
     "game-development",
-    "auto-reload",
-    "model-context-protocol"
+    "game-engine",
+    "gdscript",
+    "lsp",
+    "dap",
+    "screenshot",
+    "auto-reload"
   ]
 }

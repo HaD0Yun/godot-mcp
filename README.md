@@ -70,7 +70,7 @@ Traditional AI assistants can write GDScript, but they're essentially working bl
 - **Context-Aware Assistance**: The AI can inspect your actual scene tree, understand your node hierarchy, and provide suggestions based on your real project structure
 - **Validation Before Suggesting**: Before suggesting you use a resource, the AI can verify it exists in your project
 
-#### 2. **78 Focused Tools with Dynamic ClassDB Introspection**
+#### 2. **95+ Tools with Dynamic ClassDB Introspection**
 
 Instead of hardcoding tools for every Godot class, Godot MCP provides **generic tools** (`add_node`, `create_resource`) that work with ANY ClassDB class, plus **ClassDB introspection tools** that let AI discover classes, properties, and methods dynamically.
 
@@ -86,6 +86,11 @@ Instead of hardcoding tools for every Godot class, Godot MCP provides **generic 
 | **Project Configuration** | Manage settings, autoloads, and inputs | `get_project_setting`, `set_project_setting`, `add_autoload`, `add_input_action` |
 | **Developer Experience** | Analyze, debug, and maintain your project | `get_dependencies`, `find_resource_usages`, `parse_error_log`, `get_project_health`, `search_project` |
 | **Runtime Debugging** | Inspect and modify running games | `inspect_runtime_tree`, `set_runtime_property`, `call_runtime_method`, `get_runtime_metrics` |
+| **Screenshot Capture** | Capture viewport screenshots from running games | `capture_screenshot`, `capture_viewport` |
+| **Input Injection** | Simulate keyboard, mouse, and action inputs | `inject_action`, `inject_key`, `inject_mouse_click`, `inject_mouse_motion` |
+| **GDScript LSP** | Diagnostics, completions, hover, and symbols via Godot's built-in Language Server | `lsp_get_diagnostics`, `lsp_get_completions`, `lsp_get_hover`, `lsp_get_symbols` |
+| **Debug Adapter (DAP)** | Breakpoints, stepping, stack traces, and debug output capture | `dap_get_output`, `dap_set_breakpoint`, `dap_continue`, `dap_step_over`, `dap_get_stack_trace` |
+| **MCP Resources** | Access project files via `godot://` URIs | `godot://project/info`, `godot://scene/{path}`, `godot://script/{path}` |
 | **Audio System** | Create audio buses, configure effects | `create_audio_bus`, `get_audio_buses`, `set_audio_bus_effect`, `set_audio_bus_volume` |
 | **Navigation** | AI pathfinding setup | `create_navigation_region`, `create_navigation_agent` |
 | **UI/Themes** | Create and apply custom themes with shaders | `set_theme_color`, `set_theme_font_size`, `apply_theme_shader` |
@@ -304,6 +309,39 @@ Get actionable insights about project structure, unused resources, and potential
 - Performance metrics monitoring
 - Signal watching
 
+### Screenshot Capture (New!)
+- Capture the running game's viewport as a base64 PNG/JPG image
+- Specify target resolution for resized captures
+- Capture specific viewports by node path
+
+### Input Injection (New!)
+- Simulate Godot input actions (press/release) for automated testing
+- Inject keyboard key events with modifier support (Shift, Ctrl, Alt)
+- Simulate mouse clicks (left/right/middle, single/double)
+- Simulate mouse movement (absolute and relative)
+
+### GDScript Language Server (New!)
+- Get real-time diagnostics (errors/warnings) from Godot's built-in LSP
+- Code completions at any position in a GDScript file
+- Hover information for symbols, functions, and variables
+- Document symbol outlines for navigation
+- Lazy connection to Godot editor's LSP (port 6005)
+
+### Debug Adapter Protocol (New!)
+- Capture debug console output from running Godot games
+- Set and remove breakpoints in GDScript files
+- Step over, continue, and pause execution
+- Inspect stack traces at breakpoints
+- Lazy connection to Godot's built-in DAP (port 6006)
+
+### MCP Resources (New!)
+- Access Godot project files via `godot://` URI protocol
+- `godot://project/info` — parsed project.godot metadata as JSON
+- `godot://scene/{path}` — read .tscn scene files
+- `godot://script/{path}` — read .gd script files
+- `godot://resource/{path}` — read .tres/.tscn/.gd files
+- Path traversal protection built-in
+
 ### UID Management (Godot 4.4+)
 - Get UID for specific files
 - Update UID references by resaving resources
@@ -367,6 +405,22 @@ curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install.sh | b
 | `-g, --godot PATH` | Path to Godot executable |
 | `-c, --configure NAME` | Show config for: `claude`, `cursor`, `cline`, `opencode` |
 | `-h, --help` | Show help message |
+
+---
+
+### Install via npm (Fastest)
+
+```bash
+npx gopeak
+```
+
+Or install globally:
+```bash
+npm install -g gopeak
+gopeak
+```
+
+Then configure your AI assistant to run `gopeak` (or `npx gopeak`) instead of `node /path/to/build/index.js`.
 
 ---
 
@@ -523,6 +577,30 @@ Once configured, you can use natural language to control Godot:
 "List all available asset providers"
 ```
 
+### Screenshot & Input
+```
+"Take a screenshot of the running game"
+"Press the jump action and capture the result"
+"Click at position (400, 300) in the game"
+"Simulate pressing the W key"
+```
+
+### GDScript Analysis (LSP)
+```
+"Check my player script for errors using the language server"
+"Get code completions at line 25 in movement.gd"
+"Show me hover info for the 'velocity' variable"
+"Get the symbol outline for my main script"
+```
+
+### Debug Adapter
+```
+"Set a breakpoint at line 42 in player.gd"
+"Show me the stack trace"
+"Continue execution after the breakpoint"
+"Get the debug console output"
+```
+
 ---
 
 ## Included Addons
@@ -598,6 +676,9 @@ For live debugging features, install the runtime addon:
 - `set_runtime_property` - Modify properties in real-time
 - `call_runtime_method` - Invoke methods remotely
 - `get_runtime_metrics` - Monitor FPS, memory, draw calls
+- `capture_screenshot` - Capture viewport as base64 image
+- `capture_viewport` - Capture specific viewport texture
+- `inject_action` / `inject_key` / `inject_mouse_click` / `inject_mouse_motion` - Input simulation
 
 ---
 
@@ -725,6 +806,39 @@ For live debugging features, install the runtime addon:
 | `fetch_asset` | Download asset to your Godot project |
 | `list_asset_providers` | List available providers and their capabilities |
 
+### Screenshot Tools (2)
+| Tool | Description |
+|------|-------------|
+| `capture_screenshot` | Capture running game viewport as base64 image |
+| `capture_viewport` | Capture a specific viewport node's texture |
+
+### Input Injection Tools (4)
+| Tool | Description |
+|------|-------------|
+| `inject_action` | Simulate Godot input action press/release |
+| `inject_key` | Simulate keyboard key event with modifiers |
+| `inject_mouse_click` | Simulate mouse click at position |
+| `inject_mouse_motion` | Simulate mouse movement |
+
+### GDScript LSP Tools (4)
+| Tool | Description |
+|------|-------------|
+| `lsp_get_diagnostics` | Get errors/warnings from Godot Language Server |
+| `lsp_get_completions` | Get code completions at a position |
+| `lsp_get_hover` | Get hover info for a symbol |
+| `lsp_get_symbols` | Get document symbol outline |
+
+### DAP (Debug) Tools (7)
+| Tool | Description |
+|------|-------------|
+| `dap_get_output` | Get captured debug console output |
+| `dap_set_breakpoint` | Set breakpoint in a GDScript file |
+| `dap_remove_breakpoint` | Remove a breakpoint |
+| `dap_continue` | Continue execution after breakpoint |
+| `dap_pause` | Pause running debug target |
+| `dap_step_over` | Step over current line |
+| `dap_get_stack_trace` | Get current stack trace |
+
 ---
 
 ## Architecture
@@ -733,7 +847,10 @@ Godot MCP uses a hybrid architecture:
 
 1. **Direct CLI Commands**: Simple operations use Godot's built-in CLI
 2. **Bundled GDScript**: Complex operations use a comprehensive `godot_operations.gd` script with ClassDB introspection
-3. **Runtime Addon**: Optional TCP server for live game debugging
+3. **Runtime Addon**: TCP server (port 7777) for live debugging, screenshot capture, and input injection
+4. **Godot LSP Integration**: Connects to Godot editor's Language Server (port 6005) for GDScript diagnostics
+5. **Godot DAP Integration**: Connects to Godot editor's Debug Adapter (port 6006) for breakpoints and stepping
+6. **MCP Resources**: `godot://` URI protocol for direct project file access
 
 **Key Design Decisions:**
 - **ClassDB-based dynamic approach**: Instead of hardcoding tools for every Godot class, generic tools (`add_node`, `create_resource`) work with ANY class. AI discovers capabilities via `query_classes` and `query_class_info`
@@ -769,13 +886,19 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Stats
 
-- **78 Tools** — focused, non-redundant tools covering scene management, scripting, resources, animation, configuration, debugging, and asset management
+- **95+ Tools** — comprehensive tools covering scene management, scripting, resources, animation, configuration, debugging, screenshots, input injection, LSP, DAP, and asset management
+- **MCP Resources** — `godot://` URI protocol for direct project file access
+- **GDScript LSP** — real-time diagnostics, completions, hover, and symbols via Godot's Language Server
+- **Debug Adapter (DAP)** — breakpoints, stepping, stack traces, and console output capture
+- **Screenshot Capture** — viewport capture from running games via runtime addon
+- **Input Injection** — keyboard, mouse, and action simulation for automated testing
 - **ClassDB Introspection** — AI dynamically discovers Godot classes, properties, and methods instead of relying on hardcoded tool definitions
-- **14,000+ lines** of TypeScript and GDScript
-- **~75% coverage** of Godot Engine's capabilities
+- **20,000+ lines** of TypeScript and GDScript
+- **~85% coverage** of Godot Engine's capabilities
 - **Godot 4.x** full support (including 4.4+ UID features)
 - **Auto Reload** plugin for seamless MCP integration
 - **Multi-Source Asset Library** with CC0 assets from Poly Haven, AmbientCG, and Kenney
+- **npm package** — install with `npx gopeak` or `npm install -g gopeak`
 
 ---
 
