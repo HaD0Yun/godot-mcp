@@ -122,6 +122,24 @@ func _execute_command(command: String, params: Dictionary) -> Dictionary:
 		"get_metrics":
 			return _cmd_get_metrics(params)
 		
+		"capture_screenshot":
+			return _cmd_capture_screenshot(params)
+		
+		"capture_viewport":
+			return _cmd_capture_viewport(params)
+		
+		"inject_action":
+			return _cmd_inject_action(params)
+		
+		"inject_key":
+			return _cmd_inject_key(params)
+		
+		"inject_mouse_click":
+			return _cmd_inject_mouse_click(params)
+		
+		"inject_mouse_motion":
+			return _cmd_inject_mouse_motion(params)
+		
 		"watch_signal":
 			return _cmd_watch_signal(params)
 		
@@ -243,6 +261,162 @@ func _cmd_get_metrics(params: Dictionary) -> Dictionary:
 	result["data"]["render_total_draw_calls"] = Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	
 	return result
+
+
+func _cmd_capture_screenshot(params: Dictionary) -> Dictionary:
+	var viewport = get_viewport()
+	if viewport == null:
+		return {"type": "error", "message": "No viewport available"}
+	
+	var viewport_texture = viewport.get_texture()
+	if viewport_texture == null:
+		return {"type": "error", "message": "No viewport texture available"}
+	
+	var image = viewport_texture.get_image()
+	if image == null:
+		return {"type": "error", "message": "Failed to capture viewport image"}
+	
+	var width = int(params.get("width", 0))
+	var height = int(params.get("height", 0))
+	if width > 0 and height > 0:
+		image.resize(width, height)
+	
+	var png_bytes = image.save_png_to_buffer()
+	if png_bytes.is_empty():
+		return {"type": "error", "message": "Failed to encode screenshot as PNG"}
+	
+	var base64_str = Marshalls.raw_to_base64(png_bytes)
+	
+	return {
+		"type": "screenshot",
+		"format": "png",
+		"encoding": "base64",
+		"width": image.get_width(),
+		"height": image.get_height(),
+		"data": base64_str
+	}
+
+
+func _cmd_capture_viewport(params: Dictionary) -> Dictionary:
+	return _cmd_capture_screenshot(params)
+
+
+func _cmd_inject_action(params: Dictionary) -> Dictionary:
+	var action = String(params.get("action", ""))
+	var pressed = bool(params.get("pressed", true))
+	var strength = float(params.get("strength", 1.0))
+	
+	if action.is_empty():
+		return {"type": "error", "message": "Action name required"}
+	
+	if not InputMap.has_action(action):
+		return {"type": "error", "message": "Action not found: " + action}
+	
+	var event = InputEventAction.new()
+	event.action = action
+	event.pressed = pressed
+	event.strength = strength
+	Input.parse_input_event(event)
+	
+	return {
+		"type": "input_injected",
+		"input_type": "action",
+		"action": action,
+		"pressed": pressed
+	}
+
+
+func _cmd_inject_key(params: Dictionary) -> Dictionary:
+	var keycode = int(params.get("keycode", 0))
+	var pressed = bool(params.get("pressed", true))
+	var key_label = String(params.get("key_label", ""))
+	
+	var event = InputEventKey.new()
+	event.pressed = pressed
+	
+	if not key_label.is_empty():
+		event.keycode = OS.find_keycode_from_string(key_label)
+		if event.keycode == KEY_NONE:
+			return {"type": "error", "message": "Invalid key_label: " + key_label}
+	elif keycode > 0:
+		event.keycode = keycode
+	else:
+		return {"type": "error", "message": "keycode or key_label required"}
+	
+	Input.parse_input_event(event)
+	
+	return {
+		"type": "input_injected",
+		"input_type": "key",
+		"keycode": event.keycode,
+		"pressed": pressed
+	}
+
+
+func _cmd_inject_mouse_click(params: Dictionary) -> Dictionary:
+	var position = params.get("position", Vector2.ZERO)
+	var button = int(params.get("button", MOUSE_BUTTON_LEFT))
+	var pressed = bool(params.get("pressed", true))
+	
+	if position is Array:
+		if position.size() < 2:
+			return {"type": "error", "message": "position array must contain [x, y]"}
+		position = Vector2(float(position[0]), float(position[1]))
+	elif position is Vector2:
+		position = position
+	else:
+		return {"type": "error", "message": "position must be Vector2 or [x, y]"}
+	
+	var event = InputEventMouseButton.new()
+	event.position = position
+	event.global_position = position
+	event.button_index = button
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	
+	return {
+		"type": "input_injected",
+		"input_type": "mouse_click",
+		"position": [position.x, position.y],
+		"button": button,
+		"pressed": pressed
+	}
+
+
+func _cmd_inject_mouse_motion(params: Dictionary) -> Dictionary:
+	var position = params.get("position", Vector2.ZERO)
+	var relative = params.get("relative", Vector2.ZERO)
+	
+	if position is Array:
+		if position.size() < 2:
+			return {"type": "error", "message": "position array must contain [x, y]"}
+		position = Vector2(float(position[0]), float(position[1]))
+	elif position is Vector2:
+		position = position
+	else:
+		return {"type": "error", "message": "position must be Vector2 or [x, y]"}
+	
+	if relative is Array:
+		if relative.size() < 2:
+			return {"type": "error", "message": "relative array must contain [x, y]"}
+		relative = Vector2(float(relative[0]), float(relative[1]))
+	elif relative is Vector2:
+		relative = relative
+	else:
+		return {"type": "error", "message": "relative must be Vector2 or [x, y]"}
+	
+	var event = InputEventMouseMotion.new()
+	event.position = position
+	event.global_position = position
+	event.relative = relative
+	Input.parse_input_event(event)
+	
+	return {
+		"type": "input_injected",
+		"input_type": "mouse_motion",
+		"position": [position.x, position.y],
+		"relative": [relative.x, relative.y]
+	}
 
 
 func _cmd_watch_signal(params: Dictionary) -> Dictionary:
