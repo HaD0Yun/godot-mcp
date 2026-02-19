@@ -70,27 +70,29 @@ Traditional AI assistants can write GDScript, but they're essentially working bl
 - **Context-Aware Assistance**: The AI can inspect your actual scene tree, understand your node hierarchy, and provide suggestions based on your real project structure
 - **Validation Before Suggesting**: Before suggesting you use a resource, the AI can verify it exists in your project
 
-#### 2. **90+ Tools Covering 75%+ of Godot's Capabilities**
+#### 2. **78 Focused Tools with Dynamic ClassDB Introspection**
+
+Instead of hardcoding tools for every Godot class, Godot MCP provides **generic tools** (`add_node`, `create_resource`) that work with ANY ClassDB class, plus **ClassDB introspection tools** that let AI discover classes, properties, and methods dynamically.
 
 | Category | What You Can Do | Tools |
 |----------|-----------------|-------|
 | **Scene Management** | Build entire scene trees programmatically | `create_scene`, `add_node`, `delete_node`, `duplicate_node`, `reparent_node`, `list_scene_nodes`, `get_node_properties`, `set_node_properties` |
+| **ClassDB Introspection** | Dynamically discover Godot classes, properties, methods, signals | `query_classes`, `query_class_info`, `inspect_inheritance` |
 | **GDScript Operations** | Write and modify scripts with surgical precision | `create_script`, `modify_script`, `get_script_info` |
-| **Resource Creation** | Generate materials, shaders, and custom resources | `create_resource`, `create_material`, `create_shader` |
-| **Animation System** | Build animations and state machines | `create_animation`, `add_animation_track`, `create_animation_tree`, `add_animation_state`, `connect_animation_states`, `set_animation_tree_parameter` |
+| **Resource Management** | Create any resource type, modify existing resources | `create_resource`, `modify_resource`, `create_material`, `create_shader` |
+| **Animation System** | Build animations and state machines | `create_animation`, `add_animation_track`, `create_animation_tree`, `add_animation_state`, `connect_animation_states` |
 | **2D Tile System** | Create tilesets and populate tilemaps | `create_tileset`, `set_tilemap_cells` |
 | **Signal Management** | Wire up your game's event system | `connect_signal`, `disconnect_signal`, `list_connections` |
 | **Project Configuration** | Manage settings, autoloads, and inputs | `get_project_setting`, `set_project_setting`, `add_autoload`, `add_input_action` |
 | **Developer Experience** | Analyze, debug, and maintain your project | `get_dependencies`, `find_resource_usages`, `parse_error_log`, `get_project_health`, `search_project` |
 | **Runtime Debugging** | Inspect and modify running games | `inspect_runtime_tree`, `set_runtime_property`, `call_runtime_method`, `get_runtime_metrics` |
-| **Audio System** | Create audio buses and stream players | `create_audio_bus`, `get_audio_buses`, `set_audio_bus_effect`, `set_audio_bus_volume`, `create_audio_stream_player` |
-| **Networking** | Build multiplayer games | `create_http_request`, `create_multiplayer_spawner`, `create_multiplayer_synchronizer` |
-| **Physics** | Configure physics layers and materials | `configure_physics_layer`, `create_physics_material`, `create_raycast`, `set_collision_layer_mask` |
-| **Navigation** | AI pathfinding setup | `create_navigation_region`, `create_navigation_agent`, `configure_navigation_layers` |
-| **Rendering** | Environment and lighting setup | `create_environment`, `create_world_environment`, `create_light`, `create_camera` |
-| **UI/Themes** | Create and apply custom themes | `create_theme`, `set_theme_color`, `set_theme_font_size`, `apply_theme_to_node` |
+| **Audio System** | Create audio buses, configure effects | `create_audio_bus`, `get_audio_buses`, `set_audio_bus_effect`, `set_audio_bus_volume` |
+| **Navigation** | AI pathfinding setup | `create_navigation_region`, `create_navigation_agent` |
+| **UI/Themes** | Create and apply custom themes with shaders | `set_theme_color`, `set_theme_font_size`, `apply_theme_shader` |
 | **Asset Library** | Search and download CC0 assets from multiple sources | `search_assets`, `fetch_asset`, `list_asset_providers` |
 | **Auto Reload** | Instant editor refresh on external changes | Built-in Editor Plugin |
+
+> **Design Philosophy**: Rather than providing 90+ specialized tools (e.g., `create_camera`, `create_light`, `create_physics_material`), Godot MCP uses generic `add_node` and `create_resource` tools that work with ANY Godot class. The AI uses `query_classes` to discover available types and `query_class_info` to learn their properties — just like a developer using the Godot docs.
 
 #### 3. **Seamless Editor Integration with Auto Reload**
 
@@ -252,8 +254,14 @@ Get actionable insights about project structure, unused resources, and potential
 - Disconnect signal connections
 - List all signal connections in a scene
 
-### Resource Creation
-- **Create Resources**: Generate custom .tres resource files
+### ClassDB Introspection (New!)
+- **Query Classes**: Discover available Godot classes with filtering by name, category (node, node2d, node3d, control, resource, etc.), and instantiability
+- **Query Class Info**: Get detailed methods, properties, signals, and enums for any class
+- **Inspect Inheritance**: Explore class hierarchy — ancestors, children, and all descendants
+
+### Resource Management
+- **Create Resources**: Generate ANY resource type as .tres files (replaces specialized create_* tools)
+- **Modify Resources**: Update properties of existing .tres/.res files
 - **Create Materials**: StandardMaterial3D, ShaderMaterial, CanvasItemMaterial, ParticleProcessMaterial
 - **Create Shaders**: canvas_item, spatial, particles, sky, fog shaders with templates
 
@@ -474,6 +482,15 @@ Once configured, you can use natural language to control Godot:
 "Create a red StandardMaterial3D for my enemy"
 "Create a canvas_item shader with a dissolve effect"
 "Generate a TileSet from my tilemap_atlas.png with 16x16 tiles"
+"Modify the environment resource to enable fog and glow"
+```
+
+### ClassDB Discovery
+```
+"What 3D light types are available in Godot?"
+"Show me all properties of CharacterBody3D"
+"What classes inherit from Control?"
+"Find all instantiable physics body types"
 ```
 
 ### Project Analysis
@@ -601,7 +618,7 @@ For live debugging features, install the runtime addon:
 | Tool | Description |
 |------|-------------|
 | `create_scene` | Create new scene file |
-| `add_node` | Add node to scene |
+| `add_node` | Add ANY node type to scene (universal — replaces all specialized create_* node tools) |
 | `delete_node` | Remove node from scene |
 | `duplicate_node` | Clone node in scene |
 | `reparent_node` | Move node to new parent |
@@ -617,10 +634,18 @@ For live debugging features, install the runtime addon:
 | `modify_script` | Add functions/variables/signals |
 | `get_script_info` | Analyze script structure |
 
-### Resource Tools (6)
+### ClassDB Introspection Tools (3)
 | Tool | Description |
 |------|-------------|
-| `create_resource` | Create custom .tres file |
+| `query_classes` | Discover available Godot classes with filtering by name, category, and instantiability |
+| `query_class_info` | Get methods, properties, signals, and enums for any class |
+| `inspect_inheritance` | Explore class hierarchy — ancestors, children, all descendants |
+
+### Resource Tools (7)
+| Tool | Description |
+|------|-------------|
+| `create_resource` | Create ANY resource type as .tres file |
+| `modify_resource` | Modify properties of existing .tres/.res files |
 | `create_material` | Create material resource |
 | `create_shader` | Create shader file |
 | `load_sprite` | Load texture into Sprite2D |
@@ -707,14 +732,14 @@ For live debugging features, install the runtime addon:
 Godot MCP uses a hybrid architecture:
 
 1. **Direct CLI Commands**: Simple operations use Godot's built-in CLI
-2. **Bundled GDScript**: Complex operations use a comprehensive `godot_operations.gd` script
+2. **Bundled GDScript**: Complex operations use a comprehensive `godot_operations.gd` script with ClassDB introspection
 3. **Runtime Addon**: Optional TCP server for live game debugging
 
-**Benefits:**
-- No temporary files cluttering your system
-- Consistent error handling across all operations
-- Type-safe serialization for all Godot types
-- Minimal overhead for maximum performance
+**Key Design Decisions:**
+- **ClassDB-based dynamic approach**: Instead of hardcoding tools for every Godot class, generic tools (`add_node`, `create_resource`) work with ANY class. AI discovers capabilities via `query_classes` and `query_class_info`
+- **Type-safe serialization**: Automatic conversion for Vector2, Vector3, Color, Rect2, NodePath, and other Godot types
+- **No temporary files**: Everything runs through the bundled GDScript operations dispatcher
+- **Consistent error handling**: All operations validate inputs and provide meaningful error messages
 
 ---
 
@@ -744,8 +769,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Stats
 
-- **90+ Tools** covering scene management, scripting, resources, animation, configuration, debugging, and asset management
-- **12,000+ lines** of TypeScript and GDScript
+- **78 Tools** — focused, non-redundant tools covering scene management, scripting, resources, animation, configuration, debugging, and asset management
+- **ClassDB Introspection** — AI dynamically discovers Godot classes, properties, and methods instead of relying on hardcoded tool definitions
+- **14,000+ lines** of TypeScript and GDScript
 - **~75% coverage** of Godot Engine's capabilities
 - **Godot 4.x** full support (including 4.4+ UID features)
 - **Auto Reload** plugin for seamless MCP integration
