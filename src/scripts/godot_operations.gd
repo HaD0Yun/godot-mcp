@@ -224,6 +224,16 @@ func _init():
             set_theme_font_size(params)
         "apply_theme_to_node":
             apply_theme_to_node(params)
+        # ClassDB Introspection Tools
+        "query_classes":
+            query_classes(params)
+        "query_class_info":
+            query_class_info(params)
+        "inspect_inheritance":
+            inspect_inheritance(params)
+        # Resource Modification Tool
+        "modify_resource":
+            modify_resource(params)
         _:
             log_error("Unknown operation: " + operation)
             quit(1)
@@ -681,7 +691,7 @@ func add_node(params):
         for property in properties:
             if debug_mode:
                 print("Setting property: " + property + " = " + str(properties[property]))
-            new_node.set(property, properties[property])
+            new_node.set(property, deserialize_value(properties[property]))
     
     parent.add_child(new_node)
     new_node.owner = scene_root
@@ -6545,3 +6555,257 @@ func apply_theme_to_node(params: Dictionary):
     var result = {"success": true, "node": node_path, "theme": theme_path}
     print(JSON.stringify(result))
     scene_root.queue_free()
+
+# ============================================
+# ClassDB Introspection Tools
+# ============================================
+
+# Query available classes from ClassDB with optional filtering
+func query_classes(params):
+    var filter = params.get("filter", "")
+    var category = params.get("category", "")
+    var instantiable_only = params.get("instantiable_only", false)
+    
+    log_info("Querying ClassDB classes (filter: '" + filter + "', category: '" + category + "', instantiable_only: " + str(instantiable_only) + ")")
+    
+    var all_classes = ClassDB.get_class_list()
+    all_classes.sort()
+    
+    var filtered_classes = []
+    
+    # Category base classes for filtering
+    var category_bases = {
+        "node": "Node",
+        "node2d": "Node2D",
+        "node3d": "Node3D",
+        "control": "Control",
+        "resource": "Resource",
+        "physics": "PhysicsBody3D",
+        "physics2d": "PhysicsBody2D",
+        "audio": "AudioStream",
+        "visual": "VisualInstance3D",
+        "animation": "AnimationMixer",
+    }
+    
+    for class_name_str in all_classes:
+        # Apply instantiable filter
+        if instantiable_only and not ClassDB.can_instantiate(class_name_str):
+            continue
+        
+        # Apply name filter (case-insensitive substring match)
+        if not filter.is_empty() and not class_name_str.to_lower().contains(filter.to_lower()):
+            continue
+        
+        # Apply category filter
+        if not category.is_empty():
+            var base_class = category_bases.get(category.to_lower(), "")
+            if base_class.is_empty():
+                log_error("Unknown category: " + category + ". Valid: " + str(category_bases.keys()))
+                quit(1)
+            if not ClassDB.is_parent_class(class_name_str, base_class) and class_name_str != base_class:
+                continue
+        
+        filtered_classes.append(class_name_str)
+    
+    var result = {
+        "total_classes": all_classes.size(),
+        "filtered_count": filtered_classes.size(),
+        "filter": filter,
+        "category": category,
+        "instantiable_only": instantiable_only,
+        "classes": filtered_classes
+    }
+    
+    log_info("Found " + str(filtered_classes.size()) + " classes (out of " + str(all_classes.size()) + " total)")
+    print(JSON.stringify(result))
+
+# Query detailed info about a specific class from ClassDB
+func query_class_info(params):
+    var class_name_str = params.class_name
+    var include_inherited = params.get("include_inherited", false)
+    
+    log_info("Querying class info for: " + class_name_str + " (include_inherited: " + str(include_inherited) + ")")
+    
+    if not ClassDB.class_exists(class_name_str):
+        log_error("Class not found: " + class_name_str)
+        quit(1)
+    
+    # Get methods
+    var methods_raw = ClassDB.class_get_method_list(class_name_str, !include_inherited)
+    var methods = []
+    for m in methods_raw:
+        var args = []
+        for a in m.get("args", []):
+            args.append({
+                "name": a.get("name", ""),
+                "type": a.get("type", 0),
+                "class_name": a.get("class_name", ""),
+                "hint_string": a.get("hint_string", "")
+            })
+        methods.append({
+            "name": m.get("name", ""),
+            "args": args,
+            "return": {
+                "type": m.get("return", {}).get("type", 0),
+                "class_name": m.get("return", {}).get("class_name", "")
+            },
+            "flags": m.get("flags", 0),
+            "default_args": m.get("default_args", [])
+        })
+    
+    # Get properties
+    var props_raw = ClassDB.class_get_property_list(class_name_str, !include_inherited)
+    var properties = []
+    for p in props_raw:
+        # Skip internal properties (usage flag PROPERTY_USAGE_INTERNAL = 2048 + PROPERTY_USAGE_CATEGORY = 128, etc.)
+        var usage = p.get("usage", 0)
+        if usage & PROPERTY_USAGE_CATEGORY or usage & PROPERTY_USAGE_GROUP or usage & PROPERTY_USAGE_SUBGROUP:
+            continue
+        properties.append({
+            "name": p.get("name", ""),
+            "type": p.get("type", 0),
+            "class_name": p.get("class_name", ""),
+            "hint": p.get("hint", 0),
+            "hint_string": p.get("hint_string", ""),
+            "usage": usage
+        })
+    
+    # Get signals
+    var signals_raw = ClassDB.class_get_signal_list(class_name_str, !include_inherited)
+    var signals = []
+    for s in signals_raw:
+        var sig_args = []
+        for a in s.get("args", []):
+            sig_args.append({
+                "name": a.get("name", ""),
+                "type": a.get("type", 0),
+                "class_name": a.get("class_name", "")
+            })
+        signals.append({
+            "name": s.get("name", ""),
+            "args": sig_args
+        })
+    
+    # Get enums
+    var enum_list = ClassDB.class_get_enum_list(class_name_str, !include_inherited)
+    var enums = {}
+    for e in enum_list:
+        var constants = ClassDB.class_get_enum_constants(class_name_str, e, !include_inherited)
+        var enum_values = {}
+        for c in constants:
+            enum_values[c] = ClassDB.class_get_integer_constant(class_name_str, c)
+        enums[e] = enum_values
+    
+    var result = {
+        "class_name": class_name_str,
+        "parent_class": ClassDB.get_parent_class(class_name_str),
+        "can_instantiate": ClassDB.can_instantiate(class_name_str),
+        "include_inherited": include_inherited,
+        "methods_count": methods.size(),
+        "methods": methods,
+        "properties_count": properties.size(),
+        "properties": properties,
+        "signals_count": signals.size(),
+        "signals": signals,
+        "enums": enums
+    }
+    
+    log_info("Class info retrieved: " + str(methods.size()) + " methods, " + str(properties.size()) + " properties, " + str(signals.size()) + " signals")
+    print(JSON.stringify(result))
+
+# Inspect class inheritance hierarchy
+func inspect_inheritance(params):
+    var class_name_str = params.class_name
+    
+    log_info("Inspecting inheritance for: " + class_name_str)
+    
+    if not ClassDB.class_exists(class_name_str):
+        log_error("Class not found: " + class_name_str)
+        quit(1)
+    
+    # Build ancestor chain
+    var ancestors = []
+    var current = class_name_str
+    while not current.is_empty():
+        var parent = ClassDB.get_parent_class(current)
+        if parent.is_empty():
+            break
+        ancestors.append(parent)
+        current = parent
+    
+    # Get direct subclasses
+    var all_classes = ClassDB.get_class_list()
+    var direct_children = []
+    for c in all_classes:
+        if ClassDB.get_parent_class(c) == class_name_str:
+            direct_children.append(c)
+    direct_children.sort()
+    
+    # Get all descendants (recursive)
+    var all_descendants = []
+    for c in all_classes:
+        if c != class_name_str and ClassDB.is_parent_class(c, class_name_str):
+            all_descendants.append(c)
+    all_descendants.sort()
+    
+    var result = {
+        "class_name": class_name_str,
+        "parent_class": ClassDB.get_parent_class(class_name_str),
+        "ancestors": ancestors,
+        "direct_children_count": direct_children.size(),
+        "direct_children": direct_children,
+        "all_descendants_count": all_descendants.size(),
+        "all_descendants": all_descendants,
+        "can_instantiate": ClassDB.can_instantiate(class_name_str)
+    }
+    
+    log_info("Inheritance: " + str(ancestors.size()) + " ancestors, " + str(direct_children.size()) + " direct children, " + str(all_descendants.size()) + " total descendants")
+    print(JSON.stringify(result))
+
+# ============================================
+# Resource Modification Tool
+# ============================================
+
+# Modify an existing resource file (.tres/.res)
+func modify_resource(params):
+    var resource_path = params.resource_path
+    var properties = params.get("properties", {})
+    
+    if not resource_path.begins_with("res://"):
+        resource_path = "res://" + resource_path
+    
+    log_info("Modifying resource: " + resource_path)
+    
+    if not ResourceLoader.exists(resource_path):
+        log_error("Resource not found: " + resource_path)
+        quit(1)
+    
+    var resource = load(resource_path)
+    if not resource:
+        log_error("Failed to load resource: " + resource_path)
+        quit(1)
+    
+    if debug_mode:
+        log_debug("Resource loaded: " + resource.get_class())
+    
+    var properties_set = 0
+    for prop_name in properties:
+        var value = deserialize_value(properties[prop_name])
+        resource.set(prop_name, value)
+        properties_set += 1
+        if debug_mode:
+            log_debug("Set property: " + prop_name + " = " + str(value))
+    
+    var save_error = ResourceSaver.save(resource, resource_path)
+    if save_error != OK:
+        log_error("Failed to save resource: " + str(save_error))
+        quit(1)
+    
+    var result = {
+        "resource_path": resource_path,
+        "resource_type": resource.get_class(),
+        "properties_set": properties_set
+    }
+    
+    log_info("Resource modified successfully: " + resource_path)
+    print(JSON.stringify(result))
