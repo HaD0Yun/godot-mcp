@@ -1,9 +1,10 @@
-# Godot MCP
+# GoPeak
 
 [![](https://badge.mcpx.dev?type=server 'MCP Server')](https://modelcontextprotocol.io/introduction)
 [![Made with Godot](https://img.shields.io/badge/Made%20with-Godot-478CBF?style=flat&logo=godot%20engine&logoColor=white)](https://godotengine.org)
 [![](https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white 'Node.js')](https://nodejs.org/en/download/)
 [![](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white 'TypeScript')](https://www.typescriptlang.org/)
+[![npm](https://img.shields.io/npm/v/gopeak?style=flat&logo=npm&logoColor=white 'npm')](https://www.npmjs.com/package/gopeak)
 
 [![](https://img.shields.io/github/last-commit/HaD0Yun/godot-mcp 'Last Commit')](https://github.com/HaD0Yun/godot-mcp/commits/main)
 [![](https://img.shields.io/github/stars/HaD0Yun/godot-mcp 'Stars')](https://github.com/HaD0Yun/godot-mcp/stargazers)
@@ -40,14 +41,14 @@
                         (((((((((((((((((((((((((((((((((                       
                                                                                 
 
-                          /$$      /$$  /$$$$$$  /$$$$$$$ 
-                         | $$$    /$$$ /$$__  $$| $$__  $$
-                         | $$$$  /$$$$| $$  \__/| $$  \ $$
-                         | $$ $$/$$ $$| $$      | $$$$$$$/
-                         | $$  $$$| $$| $$      | $$____/ 
-                         | $$\  $ | $$| $$    $$| $$      
-                         | $$ \/  | $$|  $$$$$$/| $$      
-                         |__/     |__/ \______/ |__/       
+        /$$$$$$             /$$$$$$$                      /$$      
+       /$$__  $$           | $$__  $$                    | $$      
+      | $$  \__/  /$$$$$$ | $$  \ $$ /$$$$$$   /$$$$$$$ | $$  /$$/
+      | $$ /$$$$//$$__  $$| $$$$$$$//$$__  $$ |____  $$ | $$ /$$/ 
+      | $$|_  $$| $$  \ $$| $$____/| $$$$$$$$  /$$$$$$$ | $$$$$/  
+      | $$  \ $$| $$  | $$| $$     | $$_____/ /$$__  $$ | $$  $$  
+      |  $$$$$$/|  $$$$$$/| $$     |  $$$$$$ |  $$$$$$$ | $$\  $$ 
+       \______/  \______/ |__/      \______/  \_______/ |__/ \__/ 
 ```
 
 **The most comprehensive Model Context Protocol (MCP) server for Godot Engine — enabling AI assistants to build, modify, and debug Godot games with unprecedented depth and precision.**
@@ -56,15 +57,15 @@
 
 ---
 
-## Why Godot MCP? The Game-Changing Benefits
+## Why GoPeak? The Game-Changing Benefits
 
 ### 🚀 Transform Your Game Development Workflow
 
-Godot MCP isn't just another tool — it's a **paradigm shift** in how AI assistants interact with game engines. Here's why this matters:
+GoPeak isn't just another tool — it's a **paradigm shift** in how AI assistants interact with game engines. Here's why this matters:
 
 #### 1. **AI That Truly Understands Godot**
 
-Traditional AI assistants can write GDScript, but they're essentially working blind. They generate code based on training data, hoping it works. **Godot MCP changes everything:**
+Traditional AI assistants can write GDScript, but they're essentially working blind. They generate code based on training data, hoping it works. **GoPeak changes everything:**
 
 - **Real-time Feedback Loop**: When you ask "run my project and show me errors," the AI actually runs your project, captures the output, and sees exactly what went wrong
 - **Context-Aware Assistance**: The AI can inspect your actual scene tree, understand your node hierarchy, and provide suggestions based on your real project structure
@@ -72,7 +73,7 @@ Traditional AI assistants can write GDScript, but they're essentially working bl
 
 #### 2. **95+ Tools with Dynamic ClassDB Introspection**
 
-Instead of hardcoding tools for every Godot class, Godot MCP provides **generic tools** (`add_node`, `create_resource`) that work with ANY ClassDB class, plus **ClassDB introspection tools** that let AI discover classes, properties, and methods dynamically.
+Instead of hardcoding tools for every Godot class, GoPeak provides **generic tools** (`add_node`, `create_resource`) that work with ANY ClassDB class, plus **ClassDB introspection tools** that let AI discover classes, properties, and methods dynamically.
 
 | Category | What You Can Do | Tools |
 |----------|-----------------|-------|
@@ -97,7 +98,7 @@ Instead of hardcoding tools for every Godot class, Godot MCP provides **generic 
 | **Asset Library** | Search and download CC0 assets from multiple sources | `search_assets`, `fetch_asset`, `list_asset_providers` |
 | **Auto Reload** | Instant editor refresh on external changes | Built-in Editor Plugin |
 
-> **Design Philosophy**: Rather than providing 90+ specialized tools (e.g., `create_camera`, `create_light`, `create_physics_material`), Godot MCP uses generic `add_node` and `create_resource` tools that work with ANY Godot class. The AI uses `query_classes` to discover available types and `query_class_info` to learn their properties — just like a developer using the Godot docs.
+> **Design Philosophy**: Rather than providing 90+ specialized tools (e.g., `create_camera`, `create_light`, `create_physics_material`), GoPeak uses generic `add_node` and `create_resource` tools that work with ANY Godot class. The AI uses `query_classes` to discover available types and `query_class_info` to learn their properties — just like a developer using the Godot docs.
 
 #### 3. **Seamless Editor Integration with Auto Reload**
 
@@ -114,7 +115,7 @@ MCP modifies file → Auto Reload detects change → Editor reloads → You see 
 
 #### 4. **Eliminate the Copy-Paste-Debug Cycle**
 
-**Before Godot MCP:**
+**Before GoPeak:**
 1. Ask AI for code
 2. Copy code to your project
 3. Run project, encounter error
@@ -122,7 +123,7 @@ MCP modifies file → Auto Reload detects change → Editor reloads → You see 
 5. Get fix, paste it
 6. Repeat 10+ times
 
-**With Godot MCP:**
+**With GoPeak:**
 1. "Create a player character with health, movement, and jumping"
 2. AI creates the scene, writes the script, adds the nodes, connects signals, and tests it
 3. Done.
@@ -131,14 +132,14 @@ The AI doesn't just write code — it **implements features end-to-end**.
 
 #### 5. **Type-Safe, Error-Resistant Operations**
 
-Every operation in Godot MCP includes:
+Every operation in GoPeak includes:
 
 - **Path Validation**: Prevents invalid file operations
 - **Type Serialization**: Correctly handles Vector2, Vector3, Color, Transform, and all Godot types
 - **Error Recovery**: Meaningful error messages with suggested fixes
 - **Atomic Operations**: Changes are applied consistently or not at all
 
-Example: When you ask to set a node's position, Godot MCP:
+Example: When you ask to set a node's position, GoPeak:
 1. Validates the scene exists
 2. Validates the node path
 3. Deserializes `{"x": 100, "y": 200}` to `Vector2(100, 200)`
@@ -167,7 +168,7 @@ The `get_project_health` tool provides a comprehensive analysis of your project:
 }
 ```
 
-This turns your AI assistant into a **code reviewer that actually understands Godot projects**.
+This turns your AI assistant into a **code reviewer that actually understands your Godot project**.
 
 #### 7. **Dependency Analysis & Circular Reference Detection**
 
@@ -843,7 +844,7 @@ For live debugging features, install the runtime addon:
 
 ## Architecture
 
-Godot MCP uses a hybrid architecture:
+GoPeak uses a hybrid architecture:
 
 1. **Direct CLI Commands**: Simple operations use Godot's built-in CLI
 2. **Bundled GDScript**: Complex operations use a comprehensive `godot_operations.gd` script with ClassDB introspection
