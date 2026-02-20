@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.had0yun/gopeak",
+  "description": "GoPeak — The most comprehensive MCP server for Godot Engine. 95+ tools: scene management, GDScript LSP diagnostics, DAP debugger, screenshot capture, input injection, ClassDB introspection, and CC0 asset library.",
+  "repository": {
+    "url": "https://github.com/HaD0Yun/godot-mcp",
+    "source": "github"
+  },
+  "version": "2.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "gopeak",
+      "version": "2.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "npx"
+    }
+  ]
+}
