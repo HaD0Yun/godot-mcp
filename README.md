@@ -80,19 +80,42 @@ npm run build
 
 Set `GODOT_PATH` if Godot is not auto-detected.
 
-### MCP Client Config (example)
+### MCP Client Config (practical examples)
 
-If your client needs explicit command config, point it to `gopeak`:
+Use one of these depending on your client.
+
+**A) Global install (`npm install -g gopeak`)**
 
 ```json
 {
   "mcpServers": {
     "godot": {
-      "command": "gopeak"
+      "command": "gopeak",
+      "env": {
+        "GODOT_PATH": "/path/to/godot"
+      }
     }
   }
 }
 ```
+
+**B) No global install (npx mode)**
+
+```json
+{
+  "mcpServers": {
+    "godot": {
+      "command": "npx",
+      "args": ["-y", "gopeak"],
+      "env": {
+        "GODOT_PATH": "/path/to/godot"
+      }
+    }
+  }
+}
+```
+
+> Tip: If your client uses `args` array style only, use `"command": "npx"` + `"args": ["-y", "gopeak"]`.
 
 ---
 
