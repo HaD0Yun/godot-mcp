@@ -122,12 +122,21 @@ If your client needs explicit command config, point it to `gopeak`:
 
 ## Quick Prompt Examples
 
-- "Create a Player scene with CharacterBody2D, Sprite2D, and CollisionShape2D"
-- "Add movement and jump logic to `scripts/player.gd`"
-- "Run project and show me errors"
-- "Set a breakpoint in `player.gd` line 42 and show stack trace"
-- "Press jump action and capture screenshot"
-- "Search my project for TODO and summarize issues"
+### Build
+- "Create a Player scene with CharacterBody2D, Sprite2D, CollisionShape2D, and a basic movement script."
+- "Add an enemy spawner scene and wire spawn signals to GameManager."
+
+### Debug
+- "Run the project, collect errors, and fix the top 3 issues automatically."
+- "Set a breakpoint at `scripts/player.gd:42`, continue execution, and show the stack trace when hit."
+
+### Runtime Testing
+- "Press `ui_accept`, move mouse to (400, 300), click, then capture a screenshot."
+- "Inspect the live scene tree and report nodes with missing scripts or invalid references."
+
+### Refactor / Maintenance
+- "Find all TODO/FIXME comments and group them by file with a priority suggestion."
+- "Analyze project health and list quick wins to improve stability before release."
 
 ---
 
