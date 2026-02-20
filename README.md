@@ -59,6 +59,19 @@
 
 ---
 
+## GoPeak vs Upstream (Coding-Solo/godot-mcp)
+
+| Capability | Upstream | GoPeak |
+|---|---|---|
+| GDScript LSP tools | Not available in README tool list | ✅ `lsp_get_diagnostics`, `lsp_get_completions`, `lsp_get_hover`, `lsp_get_symbols` |
+| DAP debugging tools | Not available in README tool list | ✅ breakpoints, step/continue/pause, stack trace, debug output |
+| Input injection tools | Not available in README tool list | ✅ `inject_action`, `inject_key`, `inject_mouse_click`, `inject_mouse_motion` |
+| Screenshot capture tools | Not available in README tool list | ✅ `capture_screenshot`, `capture_viewport` |
+| Auto Reload editor plugin | Not available | ✅ included `auto_reload` addon |
+| Tool coverage scale | Smaller documented scope | ✅ 95+ MCP tools across scene/script/resource/runtime/LSP/DAP/input |
+
+---
+
 ## Why GoPeak? The Game-Changing Benefits
 
 ### 🚀 Transform Your Game Development Workflow

@@ -9,7 +9,7 @@
 
 import { fileURLToPath } from 'url';
 import { join, dirname, basename, normalize } from 'path';
-import { existsSync, readdirSync, mkdirSync } from 'fs';
+import { existsSync, readdirSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
@@ -80,6 +80,10 @@ class GodotServer {
   private lspClient: GodotLSPClient | null = null;
   private dapClient: GodotDAPClient | null = null;
   private lastProjectPath: string | null = null;
+  private recordingMode: 'lite' | 'full' = (process.env.LOG_MODE === 'full' ? 'full' : 'lite');
+  private logQueue: Array<{ filePath: string; payload: Record<string, unknown> }> = [];
+  private logFlushTimer: NodeJS.Timeout | null = null;
+  private readonly logFlushIntervalMs: number = 1500;
 
   /**
    * Parameter name mappings between snake_case and camelCase
@@ -427,6 +431,12 @@ class GodotServer {
    */
   private async cleanup() {
     this.logDebug('Cleaning up resources');
+    if (this.logFlushTimer) {
+      clearTimeout(this.logFlushTimer);
+      this.logFlushTimer = null;
+    }
+    this.flushLogQueue();
+
     if (this.activeProcess) {
       this.logDebug('Killing active Godot process');
       this.activeProcess.process.kill();
@@ -885,6 +895,198 @@ class GodotServer {
               },
             },
             required: ['projectPath'],
+          },
+        },
+        {
+          name: 'scaffold_gameplay_prototype',
+          description: 'Creates a minimal playable prototype scaffold in one shot: main scene, player scene, basic nodes, common input actions, and optional starter player script.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Absolute path to project directory containing project.godot.',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Main scene path relative to project. Default: scenes/Main.tscn',
+              },
+              playerScenePath: {
+                type: 'string',
+                description: 'Player scene path relative to project. Default: scenes/Player.tscn',
+              },
+              includePlayerScript: {
+                type: 'boolean',
+                description: 'If true, creates scripts/player.gd starter script. Default: true',
+              },
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'validate_patch_with_lsp',
+          description: 'Runs Godot LSP diagnostics for a script and returns whether it is safe to apply changes. Intended as a pre-apply quality gate.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Absolute path to project directory containing project.godot.',
+              },
+              scriptPath: {
+                type: 'string',
+                description: 'Script path relative to project (e.g., scripts/player.gd).',
+              },
+            },
+            required: ['projectPath', 'scriptPath'],
+          },
+        },
+        {
+          name: 'enforce_version_gate',
+          description: 'Checks Godot version and runtime addon protocol/capabilities against minimum requirements before risky operations.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Absolute path to project directory containing project.godot.',
+              },
+              minGodotVersion: {
+                type: 'string',
+                description: 'Minimum required Godot version (major.minor). Default: 4.2',
+              },
+              minProtocolVersion: {
+                type: 'string',
+                description: 'Minimum required runtime protocol version. Default: 1.0',
+              },
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'capture_intent_snapshot',
+          description: 'Capture/update an intent snapshot for current work (goal, constraints, acceptance criteria) and persist it for handoff.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              goal: { type: 'string', description: 'Primary goal of the current work.' },
+              why: { type: 'string', description: 'Why this work matters.' },
+              constraints: { type: 'array', items: { type: 'string' }, description: 'Operational/technical constraints.' },
+              acceptanceCriteria: { type: 'array', items: { type: 'string' }, description: 'Definition of done.' },
+              nonGoals: { type: 'array', items: { type: 'string' }, description: 'Out of scope items.' },
+              priority: { type: 'string', description: 'Priority label (e.g., P0, P1).' }
+            },
+            required: ['projectPath', 'goal'],
+          },
+        },
+        {
+          name: 'record_decision_log',
+          description: 'Record a structured decision log entry with rationale and alternatives.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              intentId: { type: 'string', description: 'Related intent id. Optional if latest intent should be inferred.' },
+              decision: { type: 'string', description: 'Decision statement.' },
+              rationale: { type: 'string', description: 'Why this decision was made.' },
+              alternativesRejected: { type: 'array', items: { type: 'string' }, description: 'Alternatives considered and rejected.' },
+              evidenceRefs: { type: 'array', items: { type: 'string' }, description: 'References supporting the decision.' }
+            },
+            required: ['projectPath', 'decision'],
+          },
+        },
+        {
+          name: 'generate_handoff_brief',
+          description: 'Generate a handoff brief from saved intents, decisions, and execution traces for the next AI/operator.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              maxItems: { type: 'number', description: 'Max items per section. Default: 5' }
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'summarize_intent_context',
+          description: 'Summarize current intent context (goal, open decisions, risks, next actions) in compact form.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' }
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'record_work_step',
+          description: 'Unified operation: records execution trace and optionally refreshes handoff pack in one call.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              intentId: { type: 'string', description: 'Related intent id. Optional: auto-link active intent.' },
+              action: { type: 'string', description: 'Executed action name.' },
+              command: { type: 'string', description: 'Command or tool invocation.' },
+              filesChanged: { type: 'array', items: { type: 'string' }, description: 'Changed file paths.' },
+              result: { type: 'string', description: 'success|failed|partial' },
+              artifact: { type: 'string', description: 'Artifact reference (branch, commit, build id).' },
+              error: { type: 'string', description: 'Error details when failed.' },
+              refreshHandoffPack: { type: 'boolean', description: 'If true, regenerates handoff pack after recording. Default: true' },
+              maxItems: { type: 'number', description: 'Max items for refreshed handoff pack. Default: 10' }
+            },
+            required: ['projectPath', 'action', 'result'],
+          },
+        },
+        {
+          name: 'record_execution_trace',
+          description: 'Record execution trace for a work step (command/tool, files changed, result, artifacts).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              intentId: { type: 'string', description: 'Related intent id. Optional: auto-link active intent.' },
+              action: { type: 'string', description: 'Executed action name.' },
+              command: { type: 'string', description: 'Command or tool invocation.' },
+              filesChanged: { type: 'array', items: { type: 'string' }, description: 'Changed file paths.' },
+              result: { type: 'string', description: 'success|failed|partial' },
+              artifact: { type: 'string', description: 'Artifact reference (branch, commit, build id).' },
+              error: { type: 'string', description: 'Error details when failed.' }
+            },
+            required: ['projectPath', 'action', 'result'],
+          },
+        },
+        {
+          name: 'export_handoff_pack',
+          description: 'Export a machine-readable handoff pack combining intent, decisions, and execution traces.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              maxItems: { type: 'number', description: 'Maximum decisions/traces to include. Default: 10' }
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'set_recording_mode',
+          description: 'Set recording mode: lite (minimal overhead) or full (richer context).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              mode: { type: 'string', description: 'lite|full' }
+            },
+            required: ['mode'],
+          },
+        },
+        {
+          name: 'get_recording_mode',
+          description: 'Get current recording mode and queue status.',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
           },
         },
         {
@@ -2826,6 +3028,30 @@ class GodotServer {
           return await this.handleListProjects(request.params.arguments);
         case 'get_project_info':
           return await this.handleGetProjectInfo(request.params.arguments);
+        case 'scaffold_gameplay_prototype':
+          return await this.handleScaffoldGameplayPrototype(request.params.arguments);
+        case 'validate_patch_with_lsp':
+          return await this.handleValidatePatchWithLsp(request.params.arguments);
+        case 'enforce_version_gate':
+          return await this.handleEnforceVersionGate(request.params.arguments);
+        case 'capture_intent_snapshot':
+          return await this.handleCaptureIntentSnapshot(request.params.arguments);
+        case 'record_decision_log':
+          return await this.handleRecordDecisionLog(request.params.arguments);
+        case 'generate_handoff_brief':
+          return await this.handleGenerateHandoffBrief(request.params.arguments);
+        case 'summarize_intent_context':
+          return await this.handleSummarizeIntentContext(request.params.arguments);
+        case 'record_work_step':
+          return await this.handleRecordWorkStep(request.params.arguments);
+        case 'record_execution_trace':
+          return await this.handleRecordExecutionTrace(request.params.arguments);
+        case 'export_handoff_pack':
+          return await this.handleExportHandoffPack(request.params.arguments);
+        case 'set_recording_mode':
+          return await this.handleSetRecordingMode(request.params.arguments);
+        case 'get_recording_mode':
+          return await this.handleGetRecordingMode();
         case 'create_scene':
           return await this.handleCreateScene(request.params.arguments);
         case 'add_node':
@@ -3531,6 +3757,813 @@ class GodotServer {
         ]
       );
     }
+  }
+
+  private compareMajorMinorVersions(actual: string, minimum: string): boolean {
+    const parse = (value: string): [number, number] => {
+      const m = value.match(/(\d+)\.(\d+)/);
+      if (!m) return [0, 0];
+      return [parseInt(m[1], 10), parseInt(m[2], 10)];
+    };
+
+    const [aMaj, aMin] = parse(actual);
+    const [mMaj, mMin] = parse(minimum);
+
+    if (aMaj > mMaj) return true;
+    if (aMaj < mMaj) return false;
+    return aMin >= mMin;
+  }
+
+  /**
+   * One-shot gameplay prototype scaffold
+   */
+  private async handleScaffoldGameplayPrototype(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse('Project path is required', ['Provide projectPath']);
+    }
+
+    const projectFile = join(args.projectPath, 'project.godot');
+    if (!existsSync(projectFile)) {
+      return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, [
+        'Ensure project.godot exists in the provided path',
+      ]);
+    }
+
+    const scenePath = args.scenePath || 'scenes/Main.tscn';
+    const playerScenePath = args.playerScenePath || 'scenes/Player.tscn';
+    const includePlayerScript = args.includePlayerScript !== false;
+
+    const steps: Array<{ step: string; ok: boolean; detail?: string }> = [];
+
+    const runOperation = async (operation: string, params: Record<string, any>) => {
+      const { stdout, stderr } = await this.executeOperation(operation, params, args.projectPath);
+      const ok = !(stderr && stderr.includes('ERROR'));
+      return { ok, stdout: stdout?.trim() || '', stderr: stderr?.trim() || '' };
+    };
+
+    try {
+      // 1) Create main scene
+      const createMain = await runOperation('create_scene', {
+        scenePath,
+        rootNodeType: 'Node2D',
+      });
+      steps.push({ step: 'create_main_scene', ok: createMain.ok, detail: createMain.stderr || createMain.stdout });
+      if (!createMain.ok) {
+        return this.createErrorResponse('Failed to scaffold: could not create main scene', [createMain.stderr || 'Unknown error']);
+      }
+
+      // 2) Create player scene
+      const createPlayerScene = await runOperation('create_scene', {
+        scenePath: playerScenePath,
+        rootNodeType: 'CharacterBody2D',
+      });
+      steps.push({ step: 'create_player_scene', ok: createPlayerScene.ok, detail: createPlayerScene.stderr || createPlayerScene.stdout });
+      if (!createPlayerScene.ok) {
+        return this.createErrorResponse('Failed to scaffold: could not create player scene', [createPlayerScene.stderr || 'Unknown error']);
+      }
+
+      // 3) Add common player child nodes
+      const playerNodeAdds: Array<{ nodeType: string; nodeName: string; properties?: any }> = [
+        { nodeType: 'Sprite2D', nodeName: 'Sprite2D' },
+        { nodeType: 'CollisionShape2D', nodeName: 'CollisionShape2D' },
+        { nodeType: 'Camera2D', nodeName: 'Camera2D', properties: { enabled: true } },
+      ];
+
+      for (const node of playerNodeAdds) {
+        const add = await runOperation('add_node', {
+          scenePath: playerScenePath,
+          nodeType: node.nodeType,
+          nodeName: node.nodeName,
+          properties: node.properties,
+        });
+        steps.push({ step: `add_node_${node.nodeName}`, ok: add.ok, detail: add.stderr || add.stdout });
+      }
+
+      // 4) Add Player instance placeholder to main scene (as Node2D) and attach player scene path as meta hint
+      const addPlayerRoot = await runOperation('add_node', {
+        scenePath,
+        nodeType: 'Node2D',
+        nodeName: 'Player',
+      });
+      steps.push({ step: 'add_player_root_to_main', ok: addPlayerRoot.ok, detail: addPlayerRoot.stderr || addPlayerRoot.stdout });
+
+      // 5) Input actions
+      const inputActions = [
+        {
+          actionName: 'move_left',
+          events: [{ type: 'key', keycode: 'A' }, { type: 'key', keycode: 'Left' }],
+        },
+        {
+          actionName: 'move_right',
+          events: [{ type: 'key', keycode: 'D' }, { type: 'key', keycode: 'Right' }],
+        },
+        {
+          actionName: 'jump',
+          events: [{ type: 'key', keycode: 'Space' }],
+        },
+      ];
+
+      for (const action of inputActions) {
+        const inputResult = await runOperation('add_input_action', action);
+        steps.push({ step: `add_input_${action.actionName}`, ok: inputResult.ok, detail: inputResult.stderr || inputResult.stdout });
+      }
+
+      // 6) Optional starter player script
+      if (includePlayerScript) {
+        const scriptResult = await runOperation('create_script', {
+          script_path: 'scripts/player.gd',
+          class_name: 'PlayerController',
+          extends_class: 'CharacterBody2D',
+          content: "@export var speed: float = 220.0\n@export var jump_velocity: float = -420.0\n@export var gravity: float = 980.0\n\nfunc _physics_process(delta: float) -> void:\n\tvar dir := Input.get_axis(\"move_left\", \"move_right\")\n\tvelocity.x = dir * speed\n\tif not is_on_floor():\n\t\tvelocity.y += gravity * delta\n\tif is_on_floor() and Input.is_action_just_pressed(\"jump\"):\n\t\tvelocity.y = jump_velocity\n\tmove_and_slide()\n",
+        });
+        steps.push({ step: 'create_player_script', ok: scriptResult.ok, detail: scriptResult.stderr || scriptResult.stdout });
+
+        // Attach script to player root
+        const attachScript = await runOperation('set_node_properties', {
+          scenePath: playerScenePath,
+          nodePath: '.',
+          properties: { script: 'res://scripts/player.gd' },
+        });
+        steps.push({ step: 'attach_player_script', ok: attachScript.ok, detail: attachScript.stderr || attachScript.stdout });
+      }
+
+      // 7) Set main scene
+      const setMain = await runOperation('set_main_scene', { scenePath });
+      steps.push({ step: 'set_main_scene', ok: setMain.ok, detail: setMain.stderr || setMain.stdout });
+
+      const allOk = steps.every((s) => s.ok);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: allOk,
+                summary: allOk
+                  ? 'Gameplay prototype scaffold completed.'
+                  : 'Scaffold completed with some failed steps. Check steps[] details.',
+                outputs: {
+                  mainScene: scenePath,
+                  playerScene: playerScenePath,
+                  playerScript: includePlayerScript ? 'scripts/player.gd' : null,
+                },
+                steps,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to scaffold gameplay prototype: ${error?.message || 'Unknown error'}`, [
+        'Ensure Godot is installed and accessible',
+        'Check project path and write permissions',
+      ]);
+    }
+  }
+
+  /**
+   * Pre-apply LSP validation gate
+   */
+  private async handleValidatePatchWithLsp(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.scriptPath) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and scriptPath']);
+    }
+
+    try {
+      const lspResult = await this.handleLSP('lsp_get_diagnostics', {
+        projectPath: args.projectPath,
+        scriptPath: args.scriptPath,
+      });
+
+      const textPayload = lspResult?.content?.[0]?.text || '{}';
+      let diagnostics: any[] = [];
+      try {
+        const parsed = JSON.parse(textPayload);
+        diagnostics = Array.isArray(parsed?.diagnostics) ? parsed.diagnostics : [];
+      } catch {
+        diagnostics = [];
+      }
+
+      const hasBlocking = diagnostics.some((d: any) => {
+        const severity = d?.severity;
+        return severity === 1 || severity === 'error' || severity === 'ERROR';
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                scriptPath: args.scriptPath,
+                diagnosticsCount: diagnostics.length,
+                blockOnError: hasBlocking,
+                canApply: !hasBlocking,
+                diagnostics,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed LSP validation: ${error?.message || 'Unknown error'}`, [
+        'Ensure Godot editor is running with LSP enabled (port 6005)',
+      ]);
+    }
+  }
+
+  /**
+   * Version and protocol gate
+   */
+  private async handleEnforceVersionGate(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse('Project path is required', ['Provide projectPath']);
+    }
+
+    const minGodotVersion = args.minGodotVersion || '4.2';
+    const minProtocolVersion = args.minProtocolVersion || '1.0';
+
+    try {
+      const versionResult = await this.handleGetGodotVersion();
+      const godotVersion = (versionResult?.content?.[0]?.text || '').trim();
+      const godotOk = this.compareMajorMinorVersions(godotVersion, minGodotVersion);
+
+      let runtimeProtocol = 'unknown';
+      let runtimeConnected = false;
+      let protocolOk = false;
+      let capabilityInfo: any = {};
+
+      const runtime = await this.handleRuntimeCommand('ping', {});
+      const runtimeText = runtime?.content?.[0]?.text || '{}';
+      try {
+        const parsed = JSON.parse(runtimeText);
+        runtimeConnected = !parsed?.error;
+        runtimeProtocol = parsed?.protocol_version || parsed?.protocolVersion || '1.0';
+        capabilityInfo = {
+          hasRuntime: runtimeConnected,
+          responseType: parsed?.type || null,
+        };
+      } catch {
+        runtimeConnected = false;
+      }
+
+      protocolOk = this.compareMajorMinorVersions(runtimeProtocol, minProtocolVersion);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: godotOk && (runtimeConnected ? protocolOk : true),
+                requirements: {
+                  minGodotVersion,
+                  minProtocolVersion,
+                },
+                actual: {
+                  godotVersion,
+                  runtimeConnected,
+                  runtimeProtocol,
+                },
+                checks: {
+                  godotOk,
+                  protocolOk: runtimeConnected ? protocolOk : null,
+                },
+                capabilityInfo,
+                recommendation:
+                  godotOk
+                    ? runtimeConnected
+                      ? protocolOk
+                        ? 'Version gate passed.'
+                        : 'Runtime protocol is below minimum. Update runtime addon.'
+                      : 'Godot version is compatible. Runtime addon not connected; run project/addon for full protocol check.'
+                    : 'Godot version below minimum requirement. Upgrade Godot.',
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(`Failed to enforce version gate: ${error?.message || 'Unknown error'}`, [
+        'Ensure Godot is installed and runtime addon is available',
+      ]);
+    }
+  }
+
+  private getIntentMemoryDir(projectPath: string): string {
+    const dir = join(projectPath, '.godot-mcp-memory');
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    return dir;
+  }
+
+  private scheduleLogFlush(): void {
+    if (this.logFlushTimer) return;
+    this.logFlushTimer = setTimeout(() => {
+      this.flushLogQueue();
+    }, this.logFlushIntervalMs);
+  }
+
+  private flushLogQueue(): void {
+    const batch = this.logQueue.splice(0, this.logQueue.length);
+    this.logFlushTimer = null;
+    if (batch.length === 0) return;
+
+    const grouped = new Map<string, string[]>();
+    for (const item of batch) {
+      const line = JSON.stringify(item.payload) + '\n';
+      const existing = grouped.get(item.filePath) || [];
+      existing.push(line);
+      grouped.set(item.filePath, existing);
+    }
+
+    for (const [filePath, lines] of grouped.entries()) {
+      appendFileSync(filePath, lines.join(''), 'utf8');
+    }
+  }
+
+  private appendJsonl(filePath: string, payload: Record<string, unknown>): void {
+    // Lite mode: asynchronous queued write to reduce user-facing latency
+    // Full mode: still queued/batched to avoid frequent fs sync stalls
+    this.logQueue.push({ filePath, payload });
+
+    // Backpressure guard: if queue grows too large, flush immediately
+    if (this.logQueue.length >= 50) {
+      this.flushLogQueue();
+      return;
+    }
+
+    this.scheduleLogFlush();
+  }
+
+  private readJsonArray(filePath: string): any[] {
+    if (!existsSync(filePath)) return [];
+    try {
+      const raw = readFileSync(filePath, 'utf8');
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeJsonArray(filePath: string, value: any[]): void {
+    writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8');
+  }
+
+  private readJsonl(filePath: string): any[] {
+    if (!existsSync(filePath)) return [];
+    const raw = readFileSync(filePath, 'utf8');
+    return raw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter((v) => v !== null);
+  }
+
+  /**
+   * Capture/update current intent snapshot
+   */
+  private async handleCaptureIntentSnapshot(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.goal) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and goal']);
+    }
+
+    const projectFile = join(args.projectPath, 'project.godot');
+    if (!existsSync(projectFile)) {
+      return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, ['Ensure project.godot exists']);
+    }
+
+    const memoryDir = this.getIntentMemoryDir(args.projectPath);
+    const indexPath = join(memoryDir, 'intent-index.json');
+
+    const existing = this.readJsonArray(indexPath);
+    const intentId = `intent_${Date.now()}`;
+
+    const snapshot = {
+      intent_id: intentId,
+      ts: new Date().toISOString(),
+      goal: args.goal,
+      why: args.why || '',
+      constraints: Array.isArray(args.constraints) ? args.constraints : [],
+      acceptance_criteria: Array.isArray(args.acceptanceCriteria) ? args.acceptanceCriteria : [],
+      non_goals: Array.isArray(args.nonGoals) ? args.nonGoals : [],
+      priority: args.priority || 'P1',
+      status: 'active',
+    };
+
+    for (const item of existing) {
+      if (item && item.status === 'active') {
+        item.status = 'archived';
+      }
+    }
+    existing.push(snapshot);
+    this.writeJsonArray(indexPath, existing);
+
+    const eventsPath = join(memoryDir, 'dev-activity.jsonl');
+    this.appendJsonl(eventsPath, {
+      ts: new Date().toISOString(),
+      actor: 'mcp-server',
+      action: 'capture_intent_snapshot',
+      intent_id: intentId,
+      result: 'success',
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, intent: snapshot, files: { indexPath, eventsPath } }, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Record decision log entry
+   */
+  private async handleRecordDecisionLog(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.decision) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath and decision']);
+    }
+
+    const projectFile = join(args.projectPath, 'project.godot');
+    if (!existsSync(projectFile)) {
+      return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, ['Ensure project.godot exists']);
+    }
+
+    const memoryDir = this.getIntentMemoryDir(args.projectPath);
+    const indexPath = join(memoryDir, 'intent-index.json');
+    const decisionsPath = join(memoryDir, 'decision-log.jsonl');
+
+    const intents = this.readJsonArray(indexPath);
+    const activeIntent = intents.find((i) => i && i.status === 'active');
+    const intentId = args.intentId || activeIntent?.intent_id || null;
+
+    const decisionRecord = {
+      decision_id: `dec_${Date.now()}`,
+      ts: new Date().toISOString(),
+      intent_id: intentId,
+      decision: args.decision,
+      rationale: args.rationale || '',
+      alternatives_rejected: Array.isArray(args.alternativesRejected) ? args.alternativesRejected : [],
+      evidence_refs: Array.isArray(args.evidenceRefs) ? args.evidenceRefs : [],
+    };
+
+    this.appendJsonl(decisionsPath, decisionRecord);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, decision: decisionRecord, file: decisionsPath }, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Generate handoff brief
+   */
+  private async handleGenerateHandoffBrief(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse('Project path is required', ['Provide projectPath']);
+    }
+
+    const projectFile = join(args.projectPath, 'project.godot');
+    if (!existsSync(projectFile)) {
+      return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, ['Ensure project.godot exists']);
+    }
+
+    const maxItems = Number.isFinite(Number(args.maxItems)) ? Number(args.maxItems) : 5;
+    const memoryDir = this.getIntentMemoryDir(args.projectPath);
+    const indexPath = join(memoryDir, 'intent-index.json');
+    const decisionsPath = join(memoryDir, 'decision-log.jsonl');
+    const eventsPath = join(memoryDir, 'dev-activity.jsonl');
+
+    const intents = this.readJsonArray(indexPath);
+    const decisions = this.readJsonl(decisionsPath);
+    const events = this.readJsonl(eventsPath);
+
+    const activeIntent = intents.find((i) => i && i.status === 'active');
+    const relatedDecisions = decisions.filter((d) => d?.intent_id && activeIntent?.intent_id && d.intent_id === activeIntent.intent_id).slice(-maxItems);
+    const recentEvents = events.slice(-maxItems);
+
+    const brief = {
+      handoff_id: `handoff_${Date.now()}`,
+      ts: new Date().toISOString(),
+      current_goal: activeIntent?.goal || null,
+      constraints: activeIntent?.constraints || [],
+      acceptance_criteria: activeIntent?.acceptance_criteria || [],
+      open_decisions: relatedDecisions.map((d) => d.decision),
+      recent_actions: recentEvents.map((e) => `${e.ts} ${e.action}`),
+      next_actions: [
+        'Validate active intent against latest user message',
+        'Resolve top open decision and record rationale',
+        'Execute next implementation step and append execution trace',
+      ],
+    };
+
+    const handoffPath = join(memoryDir, 'handoff-latest.json');
+    writeFileSync(handoffPath, JSON.stringify(brief, null, 2), 'utf8');
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, handoff: brief, file: handoffPath }, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Summarize current intent context
+   */
+  private async handleSummarizeIntentContext(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse('Project path is required', ['Provide projectPath']);
+    }
+
+    const projectFile = join(args.projectPath, 'project.godot');
+    if (!existsSync(projectFile)) {
+      return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, ['Ensure project.godot exists']);
+    }
+
+    const memoryDir = this.getIntentMemoryDir(args.projectPath);
+    const indexPath = join(memoryDir, 'intent-index.json');
+    const decisionsPath = join(memoryDir, 'decision-log.jsonl');
+
+    const intents = this.readJsonArray(indexPath);
+    const decisions = this.readJsonl(decisionsPath);
+    const activeIntent = intents.find((i) => i && i.status === 'active');
+
+    const relatedDecisions = decisions.filter((d) => d?.intent_id && activeIntent?.intent_id && d.intent_id === activeIntent.intent_id).slice(-3);
+
+    const summary = {
+      goal: activeIntent?.goal || null,
+      why: activeIntent?.why || null,
+      constraints: activeIntent?.constraints || [],
+      acceptance_criteria: activeIntent?.acceptance_criteria || [],
+      recent_decisions: relatedDecisions.map((d) => ({
+        decision: d.decision,
+        rationale: d.rationale,
+      })),
+      risk: relatedDecisions.length === 0 ? 'No decisions logged yet; context may be weak.' : null,
+      next_action: 'Call generate_handoff_brief after next major change.',
+    };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(summary, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Unified work-step recorder (trace + optional handoff pack refresh)
+   */
+  private async handleRecordWorkStep(args: any) {
+    args = this.normalizeParameters(args);
+
+    const traceResponse: any = await this.handleRecordExecutionTrace(args);
+    const refreshHandoffPack = args.refreshHandoffPack !== false;
+
+    if (!refreshHandoffPack) {
+      return traceResponse;
+    }
+
+    const handoffResponse: any = await this.handleExportHandoffPack({
+      projectPath: args.projectPath,
+      maxItems: args.maxItems,
+    });
+
+    const traceText = traceResponse?.content?.[0]?.text;
+    const handoffText = handoffResponse?.content?.[0]?.text;
+
+    let tracePayload: any = null;
+    let handoffPayload: any = null;
+
+    try { tracePayload = traceText ? JSON.parse(traceText) : null; } catch {}
+    try { handoffPayload = handoffText ? JSON.parse(handoffText) : null; } catch {}
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              success: !!(tracePayload?.success && handoffPayload?.success),
+              mode: 'record_work_step',
+              trace: tracePayload,
+              handoffPack: handoffPayload,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Record execution trace
+   */
+  private async handleRecordExecutionTrace(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.action || !args.result) {
+      return this.createErrorResponse('Missing required parameters', ['Provide projectPath, action, result']);
+    }
+
+    const projectFile = join(args.projectPath, 'project.godot');
+    if (!existsSync(projectFile)) {
+      return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, ['Ensure project.godot exists']);
+    }
+
+    const memoryDir = this.getIntentMemoryDir(args.projectPath);
+    const indexPath = join(memoryDir, 'intent-index.json');
+    const eventsPath = join(memoryDir, 'dev-activity.jsonl');
+    const tracesPath = join(memoryDir, 'execution-trace.jsonl');
+
+    const intents = this.readJsonArray(indexPath);
+    const activeIntent = intents.find((i) => i && i.status === 'active');
+    const intentId = args.intentId || activeIntent?.intent_id || null;
+
+    const liteMode = this.recordingMode === 'lite';
+
+    const trace = {
+      trace_id: `trace_${Date.now()}`,
+      ts: new Date().toISOString(),
+      intent_id: intentId,
+      action: args.action,
+      command: args.command || null,
+      files_changed: Array.isArray(args.filesChanged) ? args.filesChanged : [],
+      result: args.result,
+      artifact: args.artifact || null,
+      error: args.error || null,
+      mode: this.recordingMode,
+    };
+
+    this.appendJsonl(tracesPath, trace);
+
+    this.appendJsonl(eventsPath, {
+      ts: new Date().toISOString(),
+      actor: 'mcp-server',
+      action: 'record_execution_trace',
+      intent_id: intentId,
+      result: args.result,
+      summary: liteMode ? `${args.action}:${args.result}` : `${args.action}:${args.result} files=${trace.files_changed.length}`,
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, trace, file: tracesPath }, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Export handoff pack for team-mode relay
+   */
+  private async handleExportHandoffPack(args: any) {
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse('Project path is required', ['Provide projectPath']);
+    }
+
+    const projectFile = join(args.projectPath, 'project.godot');
+    if (!existsSync(projectFile)) {
+      return this.createErrorResponse(`Not a valid Godot project: ${args.projectPath}`, ['Ensure project.godot exists']);
+    }
+
+    const maxItems = Number.isFinite(Number(args.maxItems)) ? Number(args.maxItems) : 10;
+    const memoryDir = this.getIntentMemoryDir(args.projectPath);
+    const indexPath = join(memoryDir, 'intent-index.json');
+    const decisionsPath = join(memoryDir, 'decision-log.jsonl');
+    const tracesPath = join(memoryDir, 'execution-trace.jsonl');
+
+    const intents = this.readJsonArray(indexPath);
+    const decisions = this.readJsonl(decisionsPath);
+    const traces = this.readJsonl(tracesPath);
+
+    const activeIntent = intents.find((i) => i && i.status === 'active');
+    const intentId = activeIntent?.intent_id || null;
+
+    const relatedDecisions = decisions.filter((d) => d?.intent_id && intentId && d.intent_id === intentId).slice(-maxItems);
+    const relatedTraces = traces.filter((t) => t?.intent_id && intentId && t.intent_id === intentId).slice(-maxItems);
+
+    const handoffPack = {
+      pack_id: `pack_${Date.now()}`,
+      ts: new Date().toISOString(),
+      mode: this.recordingMode,
+      intent: activeIntent || null,
+      decisions: relatedDecisions,
+      execution_traces: relatedTraces,
+      summary: {
+        decisions_count: relatedDecisions.length,
+        traces_count: relatedTraces.length,
+        latest_result: relatedTraces.length > 0 ? relatedTraces[relatedTraces.length - 1].result : null,
+      },
+      next_actions: [
+        'Check intent acceptance criteria against latest changes',
+        'Resolve remaining open decisions',
+        'Execute next highest-priority trace and record result',
+      ],
+    };
+
+    const packPath = join(memoryDir, 'handoff_pack.json');
+    writeFileSync(packPath, JSON.stringify(handoffPack, null, 2), 'utf8');
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, file: packPath, handoffPack }, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Set recording mode
+   */
+  private async handleSetRecordingMode(args: any) {
+    args = this.normalizeParameters(args);
+    const mode = `${args.mode || ''}`.toLowerCase();
+
+    if (mode !== 'lite' && mode !== 'full') {
+      return this.createErrorResponse('Invalid mode', ['Use mode="lite" or mode="full"']);
+    }
+
+    this.recordingMode = mode as 'lite' | 'full';
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ success: true, recordingMode: this.recordingMode }, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Get recording mode
+   */
+  private async handleGetRecordingMode() {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              recordingMode: this.recordingMode,
+              queueSize: this.logQueue.length,
+              flushIntervalMs: this.logFlushIntervalMs,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 
   /**
