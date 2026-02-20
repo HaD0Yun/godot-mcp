@@ -1,7 +1,7 @@
 {
   "name": "gopeak",
   "version": "2.0.0",
-  "description": "The most comprehensive MCP server for Godot Engine — 78+ tools, MCP Resources, LSP/DAP integration, screenshot capture, and input injection for AI-assisted game development.",
+  "description": "GoPeak — The most comprehensive MCP server for Godot Engine. 95+ tools: scene management, GDScript LSP diagnostics, DAP debugger, screenshot capture, input injection, ClassDB introspection, CC0 asset library. AI-assisted game development with Claude, Cursor, Cline, OpenCode.",
   "type": "module",
   "main": "./build/index.js",
   "bin": {
@@ -41,25 +41,41 @@
   "bugs": {
     "url": "https://github.com/HaD0Yun/godot-mcp/issues"
   },
-  "author": "HaD0Yun",
+  "author": {
+    "name": "HaD0Yun",
+    "url": "https://github.com/HaD0Yun"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/HaD0Yun"
+  },
   "keywords": [
     "gopeak",
     "godot",
     "godot-engine",
+    "godot4",
     "mcp",
     "mcp-server",
     "model-context-protocol",
     "ai",
+    "ai-tools",
+    "ai-integration",
     "claude",
     "cline",
     "opencode",
     "cursor",
     "game-development",
+    "gamedev",
     "game-engine",
     "gdscript",
+    "language-server",
     "lsp",
     "dap",
+    "debug-adapter-protocol",
     "screenshot",
-    "auto-reload"
+    "input-injection",
+    "auto-reload",
+    "developer-tools",
+    "typescript"
   ]
 }
