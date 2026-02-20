@@ -11,6 +11,8 @@
 [![](https://img.shields.io/github/forks/HaD0Yun/godot-mcp 'Forks')](https://github.com/HaD0Yun/godot-mcp/network/members)
 [![](https://img.shields.io/badge/License-MIT-red.svg 'MIT License')](https://opensource.org/licenses/MIT)
 
+🌐 **Language**: **English** | [한국어](README-ko.md) | [简体中文](README-zh.md) | [日本語](README-ja.md) | [Deutsch](README-de.md) | [Português](README-pt_BR.md)
+
 ```text
                            (((((((             (((((((                          
                         (((((((((((           (((((((((((                      
