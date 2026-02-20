@@ -1020,6 +1020,26 @@ class GodotServer {
           },
         },
         {
+          name: 'record_work_step',
+          description: 'Unified operation: records execution trace and optionally refreshes handoff pack in one call.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to project directory containing project.godot.' },
+              intentId: { type: 'string', description: 'Related intent id. Optional: auto-link active intent.' },
+              action: { type: 'string', description: 'Executed action name.' },
+              command: { type: 'string', description: 'Command or tool invocation.' },
+              filesChanged: { type: 'array', items: { type: 'string' }, description: 'Changed file paths.' },
+              result: { type: 'string', description: 'success|failed|partial' },
+              artifact: { type: 'string', description: 'Artifact reference (branch, commit, build id).' },
+              error: { type: 'string', description: 'Error details when failed.' },
+              refreshHandoffPack: { type: 'boolean', description: 'If true, regenerates handoff pack after recording. Default: true' },
+              maxItems: { type: 'number', description: 'Max items for refreshed handoff pack. Default: 10' }
+            },
+            required: ['projectPath', 'action', 'result'],
+          },
+        },
+        {
           name: 'record_execution_trace',
           description: 'Record execution trace for a work step (command/tool, files changed, result, artifacts).',
           inputSchema: {
@@ -3022,6 +3042,8 @@ class GodotServer {
           return await this.handleGenerateHandoffBrief(request.params.arguments);
         case 'summarize_intent_context':
           return await this.handleSummarizeIntentContext(request.params.arguments);
+        case 'record_work_step':
+          return await this.handleRecordWorkStep(request.params.arguments);
         case 'record_execution_trace':
           return await this.handleRecordExecutionTrace(request.params.arguments);
         case 'export_handoff_pack':
@@ -4325,6 +4347,52 @@ class GodotServer {
         {
           type: 'text',
           text: JSON.stringify(summary, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Unified work-step recorder (trace + optional handoff pack refresh)
+   */
+  private async handleRecordWorkStep(args: any) {
+    args = this.normalizeParameters(args);
+
+    const traceResponse: any = await this.handleRecordExecutionTrace(args);
+    const refreshHandoffPack = args.refreshHandoffPack !== false;
+
+    if (!refreshHandoffPack) {
+      return traceResponse;
+    }
+
+    const handoffResponse: any = await this.handleExportHandoffPack({
+      projectPath: args.projectPath,
+      maxItems: args.maxItems,
+    });
+
+    const traceText = traceResponse?.content?.[0]?.text;
+    const handoffText = handoffResponse?.content?.[0]?.text;
+
+    let tracePayload: any = null;
+    let handoffPayload: any = null;
+
+    try { tracePayload = traceText ? JSON.parse(traceText) : null; } catch {}
+    try { handoffPayload = handoffText ? JSON.parse(handoffText) : null; } catch {}
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              success: !!(tracePayload?.success && handoffPayload?.success),
+              mode: 'record_work_step',
+              trace: tracePayload,
+              handoffPack: handoffPayload,
+            },
+            null,
+            2
+          ),
         },
       ],
     };
