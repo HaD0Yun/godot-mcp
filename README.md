@@ -25,6 +25,12 @@
 - **Deep Godot integration**: ClassDB introspection, runtime inspection, debugger hooks.
 - **Faster iteration**: less copy-paste, more direct implementation/testing.
 
+### Best For
+
+- Solo/indie developers building quickly with AI assistance
+- Teams that want AI to inspect real project state, not just generate snippets
+- Debug-heavy workflows where runtime introspection and breakpoints matter
+
 ---
 
 ## GoPeak vs Upstream (Coding-Solo/godot-mcp)
@@ -74,6 +80,20 @@ npm run build
 
 Set `GODOT_PATH` if Godot is not auto-detected.
 
+### MCP Client Config (example)
+
+If your client needs explicit command config, point it to `gopeak`:
+
+```json
+{
+  "mcpServers": {
+    "godot": {
+      "command": "gopeak"
+    }
+  }
+}
+```
+
 ---
 
 ## Core Capabilities
@@ -87,6 +107,16 @@ Set `GODOT_PATH` if Godot is not auto-detected.
 - **LSP + DAP**: diagnostics/completion/hover + breakpoints/step/stack trace
 - **Input + screenshots**: keyboard/mouse/action injection and viewport capture
 - **Asset library**: search/fetch CC0 assets (Poly Haven, AmbientCG, Kenney)
+
+### Tool Coverage at a Glance
+
+| Area | Examples |
+|---|---|
+| Scene/Node | `create_scene`, `add_node`, `set_node_properties` |
+| Script | `create_script`, `modify_script`, `get_script_info` |
+| Runtime | `inspect_runtime_tree`, `call_runtime_method` |
+| LSP/DAP | `lsp_get_diagnostics`, `dap_set_breakpoint` |
+| Input/Visual | `inject_key`, `inject_mouse_click`, `capture_screenshot` |
 
 ---
 
