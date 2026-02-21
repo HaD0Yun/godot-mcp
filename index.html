@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoPeak — The Most Comprehensive MCP Server for Godot Engine</title>
+  <meta name="description" content="GoPeak: 95+ tools for AI-assisted Godot game development. Scene management, GDScript LSP, DAP debugger, screenshot capture, input injection, ClassDB introspection, CC0 asset library. Works with Claude, Cursor, Cline, OpenCode.">
+  <meta name="keywords" content="godot mcp, godot mcp server, model context protocol godot, godot ai, gopeak, godot engine ai, godot claude, godot cursor, godot game development ai, mcp server, godot tools, gdscript ai, godot automation">
+  <meta name="author" content="HaD0Yun">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://github.com/HaD0Yun/godot-mcp">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="GoPeak — MCP Server for Godot Engine">
+  <meta property="og:description" content="The most comprehensive Model Context Protocol server for Godot Engine. 95+ tools for AI-assisted game development.">
+  <meta property="og:url" content="https://github.com/HaD0Yun/godot-mcp">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/assets/gopeak-banner.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="GoPeak — MCP Server for Godot Engine">
+  <meta name="twitter:description" content="95+ tools for AI-assisted Godot game development. Scene management, GDScript LSP, DAP debugger, and more.">
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GoPeak",
+    "alternateName": "godot-mcp",
+    "description": "The most comprehensive Model Context Protocol (MCP) server for Godot Engine. 95+ tools for AI-assisted game development including scene management, GDScript LSP diagnostics, DAP debugger, screenshot capture, input injection, ClassDB introspection, and CC0 asset library.",
+    "url": "https://github.com/HaD0Yun/godot-mcp",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Windows, macOS, Linux",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "HaD0Yun",
+      "url": "https://github.com/HaD0Yun"
+    },
+    "codeRepository": "https://github.com/HaD0Yun/godot-mcp",
+    "programmingLanguage": ["TypeScript", "GDScript"],
+    "runtimePlatform": "Node.js",
+    "softwareRequirements": "Godot Engine 4.2+, Node.js 18+"
+  }
+  </script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
+    h1 { font-size: 2.8rem; margin-bottom: 16px; }
+    h1 span { color: #478cbf; }
+    .tagline { font-size: 1.3rem; color: #8b949e; margin-bottom: 40px; }
+    .stats { display: flex; gap: 24px; margin-bottom: 40px; flex-wrap: wrap; }
+    .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px 24px; }
+    .stat-number { font-size: 1.8rem; font-weight: bold; color: #478cbf; }
+    .stat-label { font-size: 0.9rem; color: #8b949e; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 40px; }
+    .feature { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; }
+    .feature h3 { color: #478cbf; margin-bottom: 8px; font-size: 1.1rem; }
+    .feature p { color: #8b949e; font-size: 0.95rem; }
+    .cta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 40px; }
+    .btn {
+      display: inline-block; padding: 14px 28px; border-radius: 8px;
+      text-decoration: none; font-weight: 600; font-size: 1rem;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #478cbf; color: #fff; }
+    .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+    .install { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; margin-bottom: 40px; }
+    .install h2 { margin-bottom: 12px; font-size: 1.3rem; }
+    code { background: #0d1117; padding: 3px 8px; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; color: #79c0ff; }
+    pre { background: #0d1117; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 8px 0; }
+    pre code { padding: 0; }
+    .clients { color: #8b949e; margin-bottom: 40px; }
+    .clients span { color: #e6edf3; font-weight: 600; }
+    footer { color: #484f58; font-size: 0.85rem; border-top: 1px solid #21262d; padding-top: 24px; }
+    footer a { color: #478cbf; text-decoration: none; }
+    @media (max-width: 600px) {
+      h1 { font-size: 2rem; }
+      .stats { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><span>GoPeak</span></h1>
+    <p class="tagline">The most comprehensive MCP server for Godot Engine — 95+ tools for AI-assisted game development</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-number">95+</div>
+        <div class="stat-label">Tools</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">13</div>
+        <div class="stat-label">Tool Categories</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">4.2+</div>
+        <div class="stat-label">Godot Version</div>
+      </div>
+    </div>
+
+    <div class="cta">
+      <a href="https://github.com/HaD0Yun/godot-mcp" class="btn btn-primary">View on GitHub</a>
+      <a href="https://www.npmjs.com/package/gopeak" class="btn btn-secondary">npm: gopeak</a>
+    </div>
+
+    <div class="install">
+      <h2>Quick Install</h2>
+      <pre><code>npx gopeak@latest</code></pre>
+      <p style="color:#8b949e; margin-top:8px;">Or install globally:</p>
+      <pre><code>npm install -g gopeak</code></pre>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <h3>Scene Management</h3>
+        <p>Create, modify, and inspect Godot scenes programmatically. Add nodes, set properties, manage hierarchy.</p>
+      </div>
+      <div class="feature">
+        <h3>GDScript LSP</h3>
+        <p>Real-time diagnostics, completions, hover info, and symbol navigation via Godot Language Server.</p>
+      </div>
+      <div class="feature">
+        <h3>DAP Debugger</h3>
+        <p>Set breakpoints, step through code, inspect variables, and get stack traces at runtime.</p>
+      </div>
+      <div class="feature">
+        <h3>Screenshot Capture</h3>
+        <p>Capture game viewport screenshots for visual verification and AI analysis.</p>
+      </div>
+      <div class="feature">
+        <h3>Input Injection</h3>
+        <p>Simulate keyboard, mouse, and gamepad inputs for automated testing.</p>
+      </div>
+      <div class="feature">
+        <h3>ClassDB Introspection</h3>
+        <p>Query Godot class hierarchy, methods, properties, signals, and inheritance.</p>
+      </div>
+      <div class="feature">
+        <h3>CC0 Asset Library</h3>
+        <p>Search and download free CC0 assets from Poly Haven, AmbientCG, and Kenney.</p>
+      </div>
+      <div class="feature">
+        <h3>Animation System</h3>
+        <p>Create animations, add tracks and keyframes, build state machines and blend trees.</p>
+      </div>
+      <div class="feature">
+        <h3>Runtime Inspection</h3>
+        <p>Inspect live scene tree, modify properties, call methods, and get performance metrics.</p>
+      </div>
+    </div>
+
+    <p class="clients">
+      Works with: <span>Claude Desktop</span>, <span>Cursor</span>, <span>Cline</span>, <span>OpenCode</span>, <span>Windsurf</span> — any MCP-compatible client
+    </p>
+
+    <div style="margin-bottom:40px;">
+      <h2 style="margin-bottom:16px;">Documentation</h2>
+      <p style="color:#8b949e;">
+        📖 <a href="https://github.com/HaD0Yun/godot-mcp#readme" style="color:#478cbf;">English</a> ·
+        <a href="https://github.com/HaD0Yun/godot-mcp/blob/main/README-ko.md" style="color:#478cbf;">한국어</a> ·
+        <a href="https://github.com/HaD0Yun/godot-mcp/blob/main/README-zh.md" style="color:#478cbf;">中文</a> ·
+        <a href="https://github.com/HaD0Yun/godot-mcp/blob/main/README-ja.md" style="color:#478cbf;">日本語</a> ·
+        <a href="https://github.com/HaD0Yun/godot-mcp/blob/main/README-de.md" style="color:#478cbf;">Deutsch</a> ·
+        <a href="https://github.com/HaD0Yun/godot-mcp/blob/main/README-pt_BR.md" style="color:#478cbf;">Português</a>
+      </p>
+    </div>
+
+    <footer>
+      <p>GoPeak is open source under the <a href="https://github.com/HaD0Yun/godot-mcp/blob/main/LICENSE">MIT License</a>.</p>
+      <p style="margin-top:8px;">Made by <a href="https://github.com/HaD0Yun">HaD0Yun</a></p>
+    </footer>
+  </div>
+</body>
+</html>
