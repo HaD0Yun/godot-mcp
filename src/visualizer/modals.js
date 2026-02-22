@@ -102,7 +102,14 @@ window.submitNewScript = async function () {
 window.refreshProject = async function () {
   contextMenu.classList.remove('visible');
   const refreshBtn = document.getElementById('refresh-btn');
-  if (refreshBtn) refreshBtn.classList.add('spinning');
+  if (!refreshBtn) return;
+
+  // Prevent double-clicks
+  if (refreshBtn.classList.contains('spinning')) return;
+  refreshBtn.classList.add('spinning');
+
+  const spinStart = Date.now();
+  let success = false;
 
   try {
     const result = await sendCommand('refresh_map', {});
@@ -158,11 +165,23 @@ window.refreshProject = async function () {
 
       updateStats();
       draw();
+      success = true;
     }
   } catch (err) {
     console.error('Failed to refresh:', err);
   } finally {
-    if (refreshBtn) refreshBtn.classList.remove('spinning');
+    // Ensure spinner is visible for at least 600ms so user sees feedback
+    const elapsed = Date.now() - spinStart;
+    const remaining = Math.max(0, 600 - elapsed);
+
+    setTimeout(() => {
+      refreshBtn.classList.remove('spinning');
+
+      // Flash success (green) or error (red) for 1.5s
+      const feedbackClass = success ? 'refresh-done' : 'refresh-error';
+      refreshBtn.classList.add(feedbackClass);
+      setTimeout(() => refreshBtn.classList.remove(feedbackClass), 1500);
+    }, remaining);
   }
 };
 
