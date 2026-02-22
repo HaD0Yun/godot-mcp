@@ -133,7 +133,7 @@ export function addActionEntry(entry) {
   if (actionLog.length > MAX_ACTION_LOG) actionLog.shift();
 }
 
-export const gitChangeSummary = { modified: 0, added: 0, untracked: 0 };
+export const gitChangeSummary = { modified: 0, added: 0, untracked: 0, new: 0 };
 // Compute summary from project data
 nodes.forEach(n => {
   if (n.gitStatus === 'modified') gitChangeSummary.modified++;

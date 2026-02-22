@@ -198,7 +198,7 @@ function init() {
     const H = window.innerHeight;
 
     ctx.font = '18px -apple-system, system-ui, sans-serif';
-    ctx.fillStyle = '#706c66';
+    ctx.fillStyle = '#484f58';
     ctx.textAlign = 'center';
     ctx.fillText('No scripts found in project', W / 2, H / 2);
     zoomIndicator.style.display = 'none';

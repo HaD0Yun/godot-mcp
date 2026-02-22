@@ -551,12 +551,14 @@ export function buildChangesPanel() {
   const modifiedCountEl = document.getElementById('changes-modified-count');
   const addedCountEl = document.getElementById('changes-added-count');
   const untrackedCountEl = document.getElementById('changes-untracked-count');
+  const newCountEl = document.getElementById('changes-new-count');
   const totalEl = document.getElementById('changes-total');
   const toggleInput = document.getElementById('changes-toggle-input');
 
   if (modifiedCountEl) modifiedCountEl.textContent = String(gitChangeSummary.modified);
   if (addedCountEl) addedCountEl.textContent = String(gitChangeSummary.added);
   if (untrackedCountEl) untrackedCountEl.textContent = String(gitChangeSummary.untracked);
+  if (newCountEl) newCountEl.textContent = String(gitChangeSummary.new || 0);
 
   const totalChanges = gitChangeSummary.modified + gitChangeSummary.added + gitChangeSummary.untracked;
   if (totalEl) totalEl.textContent = `${totalChanges} changed files`;
@@ -640,7 +642,7 @@ window.filterByChangeType = function(type) {
       return;
     }
 
-    const matches = node.gitStatus === nextFilter;
+    const matches = type === 'new' ? node.isNew : node.gitStatus === nextFilter;
     node.visible = matches;
     node.highlighted = matches;
     if (matches) matchingNodes.push(node);
@@ -838,10 +840,10 @@ function startInlineRename(screenX, screenY, node, scenePath) {
     font-size: 12px;
     font-family: -apple-system, system-ui, sans-serif;
     font-weight: 600;
-    background: #242428;
+    background: #0f1014;
     border: 2px solid #7aa2f7;
     border-radius: 4px;
-    color: #e8e4df;
+    color: #f0f0f5;
     z-index: 1000;
     outline: none;
   `;
