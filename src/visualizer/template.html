@@ -36,6 +36,25 @@
   <div class="panel-body" id="panel-body"></div>
 </div>
 
+<!-- Category Filter Panel -->
+<div id="category-panel">
+  <div class="cat-header">
+    <span class="cat-title">Categories</span>
+    <div class="cat-controls">
+      <button class="cat-mode-btn" id="cat-mode-btn" onclick="toggleGroupMode()" title="Toggle grouped layout">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </button>
+      <button class="cat-all-btn" onclick="toggleAllCategories()" title="Show/Hide all">All</button>
+    </div>
+  </div>
+  <div class="cat-list" id="cat-list"></div>
+</div>
+
 <!-- View Tabs -->
 <div id="view-tabs">
   <button class="active" onclick="switchView('scripts')">Scripts</button>

@@ -47,6 +47,7 @@ export interface ScriptNode {
   path: string;        // res:// path
   filename: string;
   folder: string;
+  category: string;    // e.g., "player", "audio", "network", "dungeon", "ui", "system", "utility"
   class_name: string;
   extends: string;
   description: string;
@@ -65,12 +66,35 @@ export interface ProjectEdge {
   signal_name?: string;
 }
 
+export interface CategoryInfo {
+  id: string;       // e.g., "player"
+  label: string;    // e.g., "Player"
+  color: string;    // e.g., "#f38ba8"
+  count: number;    // Number of scripts in this category
+}
+
 export interface ProjectMap {
   nodes: ScriptNode[];
   edges: ProjectEdge[];
+  categories: CategoryInfo[];
   total_scripts: number;
   total_connections: number;
 }
+
+// Dynamic color palette — assigned to categories as they are discovered.
+const CATEGORY_PALETTE = [
+  '#f38ba8', '#fab387', '#89dceb', '#a6e3a1', '#cba6f7',
+  '#f9e2af', '#94e2d5', '#7aa2f7', '#89b4fa', '#eba0ac',
+  '#b4befe', '#74c7ec', '#f5c2e7', '#a6adc8', '#f2cdcd',
+  '#cdd6f4', '#bac2de', '#94e2d5', '#fab387', '#89dceb',
+];
+const FALLBACK_COLOR = '#6c7086';
+
+// Folder names that are generic containers, not meaningful categories.
+// When a script sits under one of these, skip to the next subfolder.
+const CONTAINER_FOLDERS = new Set([
+  'scripts', 'src', 'code', 'source', 'gdscript', 'gd', 'lib', 'core',
+]);
 
 export interface MapProjectResult {
   ok: boolean;
@@ -123,7 +147,23 @@ export function mapProject(
     }
   }
 
-  // 3. Build edges
+  const categoryCounts: Record<string, number> = {};
+  for (const node of nodes) {
+    node.category = categorizeScript(node);
+    categoryCounts[node.category] = (categoryCounts[node.category] || 0) + 1;
+  }
+
+  // Build categories dynamically — colors assigned by descending count
+  let colorIdx = 0;
+  const categories: CategoryInfo[] = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, count]) => ({
+      id,
+      label: prettifyLabel(id),
+      color: CATEGORY_PALETTE[colorIdx++ % CATEGORY_PALETTE.length] || FALLBACK_COLOR,
+      count,
+    }));
+
   const edges: ProjectEdge[] = [];
   for (const node of nodes) {
     const fromPath = node.path;
@@ -162,6 +202,7 @@ export function mapProject(
     project_map: {
       nodes,
       edges,
+      categories,
       total_scripts: nodes.length,
       total_connections: edges.length,
     },
@@ -393,6 +434,7 @@ function parseScript(absolutePath: string, resPath: string): ScriptNode {
     path: resPath,
     filename,
     folder,
+    category: 'other',
     class_name: classNameStr,
     extends: extendsClass,
     description,
@@ -422,6 +464,38 @@ function inferType(defaultVal: string): string {
   return '';
 }
 
+/**
+ * Categorise a script by its folder structure.
+ * Uses the first meaningful subfolder (skipping generic containers like scripts/, src/).
+ * Works for ANY Godot project — no hardcoded game-specific keywords.
+ */
+function categorizeScript(node: ScriptNode): string {
+  const resPath = node.path.replace(/^res:\/\//, '');
+  const segments = resPath.split('/').filter(Boolean);
+
+  // Remove filename (last segment)
+  const folders = segments.slice(0, -1);
+
+  if (folders.length === 0) return 'root';
+
+  // Find first folder that is NOT a generic container
+  for (const folder of folders) {
+    if (!CONTAINER_FOLDERS.has(folder.toLowerCase())) {
+      return folder.toLowerCase();
+    }
+  }
+
+  // All folders were containers — use the deepest one
+  return folders[folders.length - 1].toLowerCase();
+}
+
+/** Turn a folder slug into a readable label: my_cool_scripts → My Cool Scripts */
+function prettifyLabel(slug: string): string {
+  return slug
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // ─── Path Helpers ────────────────────────────────────────────────────
 
 function resToAbsolute(projectRoot: string, resPath: string): string {
@@ -439,6 +513,7 @@ function emptyNode(resPath: string): ScriptNode {
     path: resPath,
     filename: basename(resPath),
     folder: dirname(resPath),
+    category: 'other',
     class_name: '',
     extends: '',
     description: '',

@@ -3,14 +3,14 @@
  */
 
 import {
-  nodes, edges, camera, NODE_W, NODE_H
+  nodes, edges, camera, NODE_W, NODE_H, PROJECT_DATA
 } from './state.js';
 import { connectWebSocket } from './websocket.js';
 import { initLayout } from './layout.js';
 import { initCanvas, resize, draw, updateZoomIndicator, fitToView } from './canvas.js';
 import { initPanel } from './panel.js';
 import { initModals } from './modals.js';
-import { initEvents, updateStats } from './events.js';
+import { initEvents, updateStats, buildCategoryList } from './events.js';
 import './usages.js'; // Load usages module for side effects (global functions)
 
 // Initialize everything when DOM is ready
@@ -30,6 +30,15 @@ function init() {
 
   // Update stats
   updateStats();
+
+  // Build category list UI
+  buildCategoryList();
+
+  // Hide category panel if no categories
+  if (!PROJECT_DATA.categories || PROJECT_DATA.categories.length === 0) {
+    const catPanel = document.getElementById('category-panel');
+    if (catPanel) catPanel.style.display = 'none';
+  }
 
   // Get zoom indicator element
   const zoomIndicator = document.getElementById('zoom-indicator');
