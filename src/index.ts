@@ -94,8 +94,10 @@ class GodotServer {
   private logFlushTimer: NodeJS.Timeout | null = null;
   private readonly logFlushIntervalMs: number = 1500;
   private godotBridge: GodotBridge;
+  private cachedToolDefinitions: MCPToolDefinition[] = [];
   private readonly toolExposureProfile: 'compact' | 'full' | 'legacy';
   private readonly compactAliasToLegacy: Record<string, string> = {
+    'tool.catalog': 'tool_catalog',
     'project.list': 'list_projects',
     'project.info': 'get_project_info',
     'project.search': 'search_project',
@@ -600,6 +602,44 @@ class GodotServer {
     }
 
     return this.buildCompactTools(allTools);
+  }
+
+  private async handleToolCatalog(args: any): Promise<{ content: Array<{ type: string; text: string }> }> {
+    const normalizedArgs = this.normalizeParameters(args || {});
+    const query = typeof normalizedArgs.query === 'string' ? normalizedArgs.query.trim().toLowerCase() : '';
+    const rawLimit = typeof normalizedArgs.limit === 'number' ? normalizedArgs.limit : 30;
+    const limit = Math.max(1, Math.min(100, rawLimit));
+
+    const tools = this.cachedToolDefinitions;
+    const reverseAlias = new Map<string, string>();
+    for (const [compactName, legacyName] of Object.entries(this.compactAliasToLegacy)) {
+      reverseAlias.set(legacyName, compactName);
+    }
+
+    const filtered = tools.filter((tool) => {
+      if (!query) return true;
+      const haystack = `${tool.name} ${tool.description}`.toLowerCase();
+      return haystack.includes(query);
+    });
+
+    const items = filtered.slice(0, limit).map((tool) => ({
+      tool: tool.name,
+      compactAlias: reverseAlias.get(tool.name) || null,
+      description: tool.description,
+    }));
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          profile: this.toolExposureProfile,
+          totalTools: tools.length,
+          query: query || null,
+          returned: items.length,
+          tools: items,
+        }, null, 2),
+      }],
+    };
   }
 
   /**
@@ -1163,6 +1203,18 @@ class GodotServer {
           inputSchema: {
             type: 'object',
             properties: {},
+            required: [],
+          },
+        },
+        {
+          name: 'tool_catalog',
+          description: 'Discover available tools including hidden legacy tools. Use query to search by capability keywords (e.g., animation, import, tilemap, audio).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', description: 'Optional keyword search over tool names and descriptions.' },
+              limit: { type: 'number', description: 'Maximum results to return. Default: 30, max: 100.' },
+            },
             required: [],
           },
         },
@@ -3113,6 +3165,8 @@ class GodotServer {
         ...createDAPTools(),
       ];
 
+      this.cachedToolDefinitions = allTools;
+
       return {
         tools: this.getExposedTools(allTools),
       };
@@ -3165,6 +3219,8 @@ class GodotServer {
           return await this.handleSetRecordingMode(request.params.arguments);
         case 'get_recording_mode':
           return await this.handleGetRecordingMode();
+        case 'tool_catalog':
+          return await this.handleToolCatalog(request.params.arguments);
         case 'create_scene':
           return await this.handleViaBridge('create_scene', request.params.arguments);
         case 'add_node':
