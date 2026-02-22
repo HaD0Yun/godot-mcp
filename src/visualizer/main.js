@@ -2,16 +2,145 @@
  * Main entry point for the Godot Project Map Visualizer
  */
 
-import {
-  nodes, edges, camera, NODE_W, NODE_H, PROJECT_DATA
-} from './state.js';
-import { connectWebSocket } from './websocket.js';
-import { initLayout } from './layout.js';
-import { initCanvas, resize, draw, updateZoomIndicator, fitToView } from './canvas.js';
-import { initPanel } from './panel.js';
-import { initModals } from './modals.js';
-import { initEvents, updateStats, buildCategoryList } from './events.js';
 import './usages.js'; // Load usages module for side effects (global functions)
+import { centerOnNodes, draw, fitToView, initCanvas, updateZoomIndicator } from './canvas.js';
+import { buildCategoryList, buildChangesPanel, initEvents, updateStats } from './events.js';
+import { initLayout } from './layout.js';
+import { initModals } from './modals.js';
+import { initPanel } from './panel.js';
+import {
+  addActionEntry,
+  actionLog,
+  gitChangeSummary,
+  nodes,
+  PROJECT_DATA
+} from './state.js';
+import { connectWebSocket, onActionEvent, sendCommand } from './websocket.js';
+
+const COMMAND_DISPLAY = {
+  create_script_file: (args) => `🆕 Script created: ${shortPath(args.path)}`,
+  modify_variable: (args) => {
+    const action = args.action || 'update';
+    const icon = action === 'add' ? '+' : action === 'delete' ? '−' : '✏️';
+    return `${icon} var ${args.name || args.old_name || '?'} ${action === 'add' ? '추가' : action === 'delete' ? '삭제' : '수정'}`;
+  },
+  modify_function: (args) => `✏️ func ${args.name || '?'}() 수정`,
+  modify_function_delete: (args) => `− func ${args.name || '?'}() 삭제`,
+  modify_signal: (args) => {
+    const action = args.action || 'update';
+    const icon = action === 'add' ? '🔗' : action === 'delete' ? '−' : '✏️';
+    return `${icon} signal ${args.name || args.old_name || '?'} ${action === 'add' ? '추가' : action === 'delete' ? '삭제' : '수정'}`;
+  },
+  modify_script: () => '✏️ Script modified',
+  create_script: () => '🆕 Script created'
+};
+
+function shortPath(p) {
+  if (!p) return '?';
+  const parts = p.replace('res://', '').split('/');
+  return parts[parts.length - 1];
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const h = d.getHours().toString().padStart(2, '0');
+  const m = d.getMinutes().toString().padStart(2, '0');
+  const s = d.getSeconds().toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function commandToText(command, args) {
+  const formatter = COMMAND_DISPLAY[command];
+  if (formatter) return formatter(args || {});
+  return command.replace(/_/g, ' ');
+}
+
+function initTimeline() {
+  renderTimeline();
+
+  const fetchActionLog = (attempt = 0) => {
+    sendCommand('get_action_log').then((result) => {
+      if (result?.entries) {
+        for (const entry of result.entries) {
+          addActionEntry(entry);
+        }
+      }
+      renderTimeline();
+    }).catch((err) => {
+      if (err.message === 'WebSocket not connected' && attempt < 10) {
+        setTimeout(() => fetchActionLog(attempt + 1), 300);
+        return;
+      }
+      console.log('[timeline] Could not fetch action log:', err.message);
+    });
+  };
+
+  fetchActionLog();
+
+  onActionEvent((msg) => {
+    addActionEntry({
+      command: msg.command,
+      args: msg.args || {},
+      timestamp: msg.timestamp || Date.now(),
+      reason: msg.reason || null,
+      filePath: msg.filePath || msg.args?.path || null
+    });
+    renderTimeline();
+  });
+}
+
+function renderTimeline() {
+  const list = document.getElementById('tl-list');
+  const empty = document.getElementById('tl-empty');
+  const count = document.getElementById('tl-count');
+  if (!list || !empty || !count) return;
+
+  count.textContent = actionLog.length;
+
+  if (actionLog.length === 0) {
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+
+  empty.style.display = 'none';
+
+  const sorted = [...actionLog].reverse();
+  const groups = {};
+  for (const entry of sorted) {
+    const fp = entry.filePath || entry.args?.path || 'Unknown';
+    if (!groups[fp]) groups[fp] = [];
+    groups[fp].push(entry);
+  }
+
+  let html = '';
+  for (const [filePath, entries] of Object.entries(groups)) {
+    const fname = shortPath(filePath);
+    const escapedPath = filePath.replace(/'/g, "\\'");
+
+    html += `<div class="tl-card" data-path="${filePath}" onclick="timelineCardClick('${escapedPath}')">`;
+    html += '<div class="tl-card-header">';
+    html += `<span class="tl-card-file">${fname}</span>`;
+    html += `<span class="tl-card-count">${entries.length}</span>`;
+    html += '</div>';
+
+    for (const entry of entries) {
+      const text = commandToText(entry.command, entry.args);
+      const time = formatTime(entry.timestamp);
+      html += '<div class="tl-action">';
+      html += `<span class="tl-action-text">${text}</span>`;
+      html += `<span class="tl-action-time">${time}</span>`;
+      if (entry.reason) {
+        html += `<div class="tl-action-reason">${entry.reason}</div>`;
+      }
+      html += '</div>';
+    }
+
+    html += '</div>';
+  }
+
+  list.innerHTML = html;
+}
 
 // Initialize everything when DOM is ready
 function init() {
@@ -33,6 +162,16 @@ function init() {
 
   // Build category list UI
   buildCategoryList();
+
+  buildChangesPanel();
+
+  const totalChanges = gitChangeSummary.modified + gitChangeSummary.added + gitChangeSummary.untracked;
+  if (totalChanges === 0) {
+    const changesPanel = document.getElementById('changes-panel');
+    if (changesPanel) changesPanel.style.display = 'none';
+  }
+
+  initTimeline();
 
   // Hide category panel if no categories
   if (!PROJECT_DATA.categories || PROJECT_DATA.categories.length === 0) {
@@ -69,6 +208,21 @@ function init() {
     draw();
   }
 }
+
+window.timelineCardClick = function timelineCardClick(filePath) {
+  const node = nodes.find(n => n.path === filePath);
+  if (node) {
+    centerOnNodes([node]);
+    draw();
+  }
+};
+
+window.toggleTimelinePanel = function toggleTimelinePanel() {
+  const panel = document.getElementById('timeline-panel');
+  if (panel) {
+    panel.classList.toggle('collapsed');
+  }
+};
 
 // Start when DOM is loaded
 if (document.readyState === 'loading') {
