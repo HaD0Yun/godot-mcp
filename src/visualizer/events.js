@@ -10,13 +10,17 @@ import {
   currentView, expandedScene, expandedSceneHierarchy, sceneData,
   setExpandedScene, setExpandedSceneHierarchy,
   setSelectedSceneNode, setHoveredSceneNode,
-  selectedSceneNode, scenePositions, setScenePosition
+  selectedSceneNode, scenePositions, setScenePosition,
+  categories, activeCategories, toggleCategory, setAllCategories,
+  categoryGroupMode, setCategoryGroupMode
 } from './state.js';
 import {
   getCanvas, screenToWorld, hitTest, draw, resize,
   updateZoomIndicator, centerOnNodes, savePositions,
-  sceneHitTest, SCENE_CARD_W, SCENE_CARD_H
+  sceneHitTest, SCENE_CARD_W, SCENE_CARD_H,
+  clearPositions, fitToView
 } from './canvas.js';
+import { initLayout, initGroupedLayout } from './layout.js';
 import { openPanel, closePanel, openSceneNodePanel, closeSceneNodePanel } from './panel.js';
 import { sendCommand } from './websocket.js';
 
@@ -494,6 +498,56 @@ function updateSceneBackButton(show, scenePath = '') {
 // Expose for global access
 window.goBackToSceneOverview = goBackToSceneOverview;
 window.expandSceneFromPanel = expandScene;
+
+// ---- Category filter functions ----
+export function buildCategoryList() {
+  const catList = document.getElementById('cat-list');
+  if (!catList || !categories.length) return;
+
+  catList.innerHTML = '';
+  categories.forEach(cat => {
+    const item = document.createElement('div');
+    item.className = 'cat-item' + (activeCategories.has(cat.id) ? '' : ' inactive');
+    item.dataset.catId = cat.id;
+    item.innerHTML = `
+      <div class="cat-dot" style="background:${cat.color}"></div>
+      <span class="cat-label">${cat.label}</span>
+      <span class="cat-count">${cat.count}</span>
+    `;
+    item.addEventListener('click', () => {
+      toggleCategory(cat.id);
+      item.classList.toggle('inactive', !activeCategories.has(cat.id));
+      draw();
+    });
+    catList.appendChild(item);
+  });
+}
+
+window.toggleGroupMode = function() {
+  const btn = document.getElementById('cat-mode-btn');
+  if (categoryGroupMode === 'free') {
+    setCategoryGroupMode('grouped');
+    btn.classList.add('active');
+    clearPositions();
+    initGroupedLayout();
+    fitToView(nodes);
+  } else {
+    setCategoryGroupMode('free');
+    btn.classList.remove('active');
+    window.__categoryGroupBoxes = null;
+    clearPositions();
+    initLayout();
+    fitToView(nodes);
+  }
+  draw();
+};
+
+window.toggleAllCategories = function() {
+  const allActive = activeCategories.size === categories.length;
+  setAllCategories(!allActive);
+  buildCategoryList();
+  draw();
+};
 
 export function updateStats() {
   const statsEl = document.getElementById('stats');

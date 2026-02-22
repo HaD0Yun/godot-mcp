@@ -8,7 +8,8 @@ import {
   currentView, sceneData, expandedScene, expandedSceneHierarchy,
   selectedSceneNode, hoveredSceneNode, scenePositions,
   setExpandedScene, setSelectedSceneNode, setHoveredSceneNode,
-  setScenePosition, scriptToScenes
+  setScenePosition, scriptToScenes,
+  categoryGroupMode, categories, activeCategories, categoryColorMap
 } from './state.js';
 
 let canvas, ctx;
@@ -190,7 +191,9 @@ export function draw() {
 
   // Build path index for quick lookup
   const pathIdx = {};
-  nodes.forEach((n, i) => pathIdx[n.path] = i);
+  nodes.forEach((n, i) => {
+    pathIdx[n.path] = i;
+  });
 
   // Group edges by node pair, type, and direction for bundled drawing
   const edgeGroups = {};
@@ -212,7 +215,8 @@ export function draw() {
     const s = nodes[group.si], t = nodes[group.ti];
     const count = group.edges.length;
 
-    // Skip edges where both nodes are hidden during search
+    if (s.categoryVisible === false || t.categoryVisible === false) continue;
+
     if (searchTerm && s.visible === false && t.visible === false) continue;
 
     // Dim edges when one node is hidden, or when neither is highlighted
@@ -283,8 +287,39 @@ export function draw() {
 
   ctx.globalAlpha = 1;
 
+  if (categoryGroupMode === 'grouped' && window.__categoryGroupBoxes) {
+    for (const box of window.__categoryGroupBoxes) {
+      const catInfo = categories.find(c => c.id === box.category);
+      if (!catInfo) continue;
+      if (!activeCategories.has(box.category)) continue;
+
+      ctx.globalAlpha = 0.08;
+      ctx.beginPath();
+      roundRect(ctx, box.x, box.y, box.w, box.h, 16);
+      ctx.fillStyle = catInfo.color || categoryColorMap[box.category] || '#7aa2f7';
+      ctx.fill();
+
+      ctx.globalAlpha = 0.25;
+      ctx.strokeStyle = catInfo.color || categoryColorMap[box.category] || '#7aa2f7';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.globalAlpha = 0.7;
+      ctx.font = 'bold 14px -apple-system, system-ui, sans-serif';
+      ctx.fillStyle = catInfo.color || categoryColorMap[box.category] || '#7aa2f7';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`${catInfo.label} (${catInfo.count})`, box.x + 12, box.y + 10);
+
+      ctx.globalAlpha = 1;
+    }
+  }
+
   // Draw nodes
   for (const n of nodes) {
+    if (n.categoryVisible === false) continue;
     // Skip hidden nodes during search
     if (searchTerm && n.visible === false) continue;
 
@@ -838,6 +873,7 @@ export function roundRect(ctx, x, y, w, h, r) {
 export function hitTest(wx, wy) {
   for (let i = nodes.length - 1; i >= 0; i--) {
     const n = nodes[i];
+    if (n.categoryVisible === false) continue;
     // Skip hidden nodes during search
     if (searchTerm && n.visible === false) continue;
     if (wx >= n.x - NODE_W / 2 && wx <= n.x + NODE_W / 2 &&

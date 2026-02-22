@@ -66,17 +66,59 @@ export function getFolderColor(folder) {
   return folderColorMap[folder];
 }
 
+export const categories = PROJECT_DATA.categories || [];
+
+export const categoryColorMap = {};
+categories.forEach(c => {
+  categoryColorMap[c.id] = c.color;
+});
+
 // Initialize nodes from project data
 export const nodes = PROJECT_DATA.nodes.map((n, i) => ({
   ...n,
   x: 0,
   y: 0,
-  color: getFolderColor(n.folder),
+  color: categoryColorMap[n.category] || getFolderColor(n.folder),
   highlighted: true,
-  visible: true
+  visible: true,
+  categoryVisible: true
 }));
 
 export const edges = PROJECT_DATA.edges;
+
+export let categoryGroupMode = 'free';
+export function setCategoryGroupMode(mode) {
+  categoryGroupMode = mode;
+}
+
+export const activeCategories = new Set(categories.map(c => c.id));
+
+export function toggleCategory(categoryId) {
+  if (activeCategories.has(categoryId)) {
+    activeCategories.delete(categoryId);
+  } else {
+    activeCategories.add(categoryId);
+  }
+  updateNodeVisibility();
+}
+
+export function setAllCategories(active) {
+  activeCategories.clear();
+  if (active) {
+    categories.forEach(c => {
+      activeCategories.add(c.id);
+    });
+  }
+  updateNodeVisibility();
+}
+
+function updateNodeVisibility() {
+  nodes.forEach(n => {
+    n.categoryVisible = activeCategories.has(n.category || 'other');
+  });
+}
+
+updateNodeVisibility();
 
 // View state
 export let currentView = 'scripts';

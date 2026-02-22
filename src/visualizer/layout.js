@@ -13,7 +13,9 @@ export function initLayout() {
 
   // Build adjacency map for connected nodes
   const adjacency = new Map();
-  nodes.forEach(n => adjacency.set(n.path, []));
+  nodes.forEach(n => {
+    adjacency.set(n.path, []);
+  });
 
   edges.forEach(e => {
     if (adjacency.has(e.from) && adjacency.has(e.to)) {
@@ -61,6 +63,137 @@ export function initLayout() {
 
   // Center the layout
   centerLayout();
+}
+
+export function initGroupedLayout() {
+  if (nodes.length === 0) return;
+
+  const groups = {};
+  nodes.forEach(n => {
+    const cat = n.category || 'other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(n);
+  });
+
+  const groupKeys = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length);
+  const groupCols = Math.ceil(Math.sqrt(groupKeys.length));
+  const GROUP_PADDING = 60;
+  const GROUP_GAP = 120;
+
+  const groupLayouts = {};
+
+  groupKeys.forEach((cat, gi) => {
+    const groupNodes = groups[cat];
+    const cols = Math.max(1, Math.ceil(Math.sqrt(groupNodes.length)));
+    const rows = Math.ceil(groupNodes.length / cols);
+
+    const innerW = cols * MIN_SPACING_X;
+    const innerH = rows * MIN_SPACING_Y;
+
+    const gCol = gi % groupCols;
+    const gRow = Math.floor(gi / groupCols);
+
+    groupLayouts[cat] = {
+      nodes: groupNodes,
+      cols,
+      rows,
+      innerW,
+      innerH,
+      totalW: innerW + GROUP_PADDING * 2,
+      totalH: innerH + GROUP_PADDING * 2 + 30,
+      gCol,
+      gRow
+    };
+  });
+
+  const maxColWidths = [];
+  const maxRowHeights = [];
+
+  Object.values(groupLayouts).forEach(g => {
+    while (maxColWidths.length <= g.gCol) maxColWidths.push(0);
+    while (maxRowHeights.length <= g.gRow) maxRowHeights.push(0);
+    maxColWidths[g.gCol] = Math.max(maxColWidths[g.gCol], g.totalW);
+    maxRowHeights[g.gRow] = Math.max(maxRowHeights[g.gRow], g.totalH);
+  });
+
+  const colOffsets = [0];
+  for (let i = 1; i < maxColWidths.length; i++) {
+    colOffsets[i] = colOffsets[i - 1] + maxColWidths[i - 1] + GROUP_GAP;
+  }
+
+  const rowOffsets = [0];
+  for (let i = 1; i < maxRowHeights.length; i++) {
+    rowOffsets[i] = rowOffsets[i - 1] + maxRowHeights[i - 1] + GROUP_GAP;
+  }
+
+  Object.entries(groupLayouts).forEach(([cat, g]) => {
+    const groupX = colOffsets[g.gCol];
+    const groupY = rowOffsets[g.gRow] + 30;
+
+    g.groupBox = {
+      x: groupX - GROUP_PADDING,
+      y: groupY - GROUP_PADDING - 30,
+      w: g.totalW,
+      h: g.totalH,
+      category: cat
+    };
+
+    g.nodes.forEach((n, ni) => {
+      const col = ni % g.cols;
+      const row = Math.floor(ni / g.cols);
+      n.x = groupX + col * MIN_SPACING_X + MIN_SPACING_X / 2;
+      n.y = groupY + row * MIN_SPACING_Y + MIN_SPACING_Y / 2;
+    });
+  });
+
+  const iterations = 60;
+  for (let iter = 0; iter < iterations; iter++) {
+    const alpha = Math.pow(1 - iter / iterations, 2) * 0.5;
+
+    Object.values(groupLayouts).forEach(g => {
+      for (let i = 0; i < g.nodes.length; i++) {
+        for (let j = i + 1; j < g.nodes.length; j++) {
+          const a = g.nodes[i];
+          const b = g.nodes[j];
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          if (dx === 0 && dy === 0) {
+            dx = Math.random() - 0.5;
+            dy = Math.random() - 0.5;
+          }
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const force = (20000 / (dist * dist)) * alpha;
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          a.x -= fx;
+          a.y -= fy;
+          b.x += fx;
+          b.y += fy;
+        }
+      }
+    });
+
+    edges.forEach(e => {
+      const from = nodes.find(n => n.path === e.from);
+      const to = nodes.find(n => n.path === e.to);
+      if (!from || !to || from.category !== to.category) return;
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      if (dist > MIN_SPACING_X) {
+        const force = (dist - MIN_SPACING_X) * 0.05 * alpha;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        from.x += fx;
+        from.y += fy;
+        to.x -= fx;
+        to.y -= fy;
+      }
+    });
+  }
+
+  window.__categoryGroupBoxes = Object.values(groupLayouts).map(g => g.groupBox);
+  centerGroupedLayout();
 }
 
 function applyForces(alpha, adjacency) {
@@ -184,4 +317,33 @@ function centerLayout() {
     n.x -= centerX;
     n.y -= centerY;
   });
+}
+
+function centerGroupedLayout() {
+  if (nodes.length === 0) return;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.x);
+    maxX = Math.max(maxX, n.x);
+    minY = Math.min(minY, n.y);
+    maxY = Math.max(maxY, n.y);
+  });
+
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  nodes.forEach(n => {
+    n.x -= cx;
+    n.y -= cy;
+  });
+
+  if (window.__categoryGroupBoxes) {
+    window.__categoryGroupBoxes.forEach(b => {
+      b.x -= cx;
+      b.y -= cy;
+    });
+  }
 }
