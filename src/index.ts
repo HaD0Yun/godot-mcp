@@ -70,6 +70,12 @@ interface OperationParams {
   [key: string]: any;
 }
 
+interface MCPToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
 /**
  * Main server class for the Godot MCP server
  */
@@ -88,6 +94,29 @@ class GodotServer {
   private logFlushTimer: NodeJS.Timeout | null = null;
   private readonly logFlushIntervalMs: number = 1500;
   private godotBridge: GodotBridge;
+  private readonly toolExposureProfile: 'compact' | 'full' | 'legacy';
+  private readonly compactAliasToLegacy: Record<string, string> = {
+    'project.list': 'list_projects',
+    'project.info': 'get_project_info',
+    'project.search': 'search_project',
+    'editor.launch': 'launch_editor',
+    'editor.run': 'run_project',
+    'editor.stop': 'stop_project',
+    'editor.debug_output': 'get_debug_output',
+    'editor.status': 'get_editor_status',
+    'scene.create': 'create_scene',
+    'scene.node.add': 'add_node',
+    'scene.save': 'save_scene',
+    'script.create': 'create_script',
+    'script.modify': 'modify_script',
+    'script.info': 'get_script_info',
+    'class.query': 'query_classes',
+    'class.info': 'query_class_info',
+    'runtime.status': 'get_runtime_status',
+    'visualizer.map': 'map_project',
+    'lsp.diagnostics': 'lsp_get_diagnostics',
+    'dap.output': 'dap_get_output',
+  };
 
   /**
    * Parameter name mappings between snake_case and camelCase
@@ -138,6 +167,13 @@ class GodotServer {
   private reverseParameterMappings: Record<string, string> = {};
 
   constructor(config?: GodotServerConfig) {
+    const rawProfile = (process.env.GOPEAK_TOOL_PROFILE || process.env.MCP_TOOL_PROFILE || 'compact').toLowerCase();
+    if (rawProfile === 'full' || rawProfile === 'legacy' || rawProfile === 'compact') {
+      this.toolExposureProfile = rawProfile;
+    } else {
+      this.toolExposureProfile = 'compact';
+    }
+
     // Initialize reverse parameter mappings
     for (const [snakeCase, camelCase] of Object.entries(this.parameterMappings)) {
       this.reverseParameterMappings[camelCase] = snakeCase;
@@ -535,6 +571,37 @@ class GodotServer {
     return handleDAPTool(this.dapClient, toolName, args);
   }
 
+  private resolveToolAlias(requestedToolName: string): string {
+    return this.compactAliasToLegacy[requestedToolName] || requestedToolName;
+  }
+
+  private buildCompactTools(allTools: MCPToolDefinition[]): MCPToolDefinition[] {
+    const compactTools: MCPToolDefinition[] = [];
+
+    for (const [compactName, legacyName] of Object.entries(this.compactAliasToLegacy)) {
+      const source = allTools.find((tool) => tool.name === legacyName);
+      if (!source) {
+        continue;
+      }
+
+      compactTools.push({
+        ...source,
+        name: compactName,
+        description: `[compact alias of ${legacyName}] ${source.description}`,
+      });
+    }
+
+    return compactTools;
+  }
+
+  private getExposedTools(allTools: MCPToolDefinition[]): MCPToolDefinition[] {
+    if (this.toolExposureProfile === 'full' || this.toolExposureProfile === 'legacy') {
+      return allTools;
+    }
+
+    return this.buildCompactTools(allTools);
+  }
+
   /**
    * Check if the Godot version is 4.4 or later
    * @param version The Godot version string
@@ -808,8 +875,8 @@ class GodotServer {
    */
   private setupToolHandlers() {
     // Define available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      const allTools: MCPToolDefinition[] = [
         {
           name: 'launch_editor',
           description: 'Opens the Godot editor GUI for a project. Use when visual inspection or manual editing of scenes/scripts is needed. Opens a new window on the host system. Requires: project directory with project.godot file.',
@@ -3044,8 +3111,12 @@ class GodotServer {
         ...createLSPTools(),
         // Godot DAP Tools (Debug Adapter Protocol via Godot editor DAP on port 6006)
         ...createDAPTools(),
-      ],
-    }));
+      ];
+
+      return {
+        tools: this.getExposedTools(allTools),
+      };
+    });
 
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -3054,7 +3125,8 @@ class GodotServer {
       if (rawArgs?.projectPath && typeof rawArgs.projectPath === 'string') {
         this.lastProjectPath = rawArgs.projectPath;
       }
-      switch (request.params.name) {
+      const resolvedToolName = this.resolveToolAlias(request.params.name);
+      switch (resolvedToolName) {
         case 'launch_editor':
           return await this.handleLaunchEditor(request.params.arguments);
         case 'run_project':
@@ -3279,7 +3351,7 @@ class GodotServer {
         case 'lsp_get_completions':
         case 'lsp_get_hover':
         case 'lsp_get_symbols':
-          return await this.handleLSP(request.params.name, request.params.arguments);
+          return await this.handleLSP(resolvedToolName, request.params.arguments);
         case 'dap_get_output':
         case 'dap_set_breakpoint':
         case 'dap_remove_breakpoint':
@@ -3287,7 +3359,7 @@ class GodotServer {
         case 'dap_pause':
         case 'dap_step_over':
         case 'dap_get_stack_trace':
-          return await this.handleDAP(request.params.name, request.params.arguments);
+          return await this.handleDAP(resolvedToolName, request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
