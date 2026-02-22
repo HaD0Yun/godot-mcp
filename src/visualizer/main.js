@@ -50,9 +50,21 @@ function formatTime(ts) {
 }
 
 function commandToText(command, args) {
+  if (!command) return 'Unknown action';
   const formatter = COMMAND_DISPLAY[command];
   if (formatter) return formatter(args || {});
   return command.replace(/_/g, ' ');
+}
+
+/** Normalize server entry format (ts/details) to frontend format (timestamp/args) */
+function normalizeEntry(raw) {
+  return {
+    command: raw.command || 'unknown',
+    args: raw.details || raw.args || {},
+    timestamp: raw.ts || raw.timestamp || Date.now(),
+    reason: raw.reason || null,
+    filePath: raw.filePath || raw.details?.path || raw.args?.path || null
+  };
 }
 
 function initTimeline() {
@@ -62,7 +74,7 @@ function initTimeline() {
     sendCommand('get_action_log').then((result) => {
       if (result?.entries) {
         for (const entry of result.entries) {
-          addActionEntry(entry);
+          addActionEntry(normalizeEntry(entry));
         }
       }
       renderTimeline();
@@ -78,13 +90,9 @@ function initTimeline() {
   fetchActionLog();
 
   onActionEvent((msg) => {
-    addActionEntry({
-      command: msg.command,
-      args: msg.args || {},
-      timestamp: msg.timestamp || Date.now(),
-      reason: msg.reason || null,
-      filePath: msg.filePath || msg.args?.path || null
-    });
+    // Server sends { type: 'action_event', entry: { ts, command, filePath, details, reason } }
+    const raw = msg.entry || msg;
+    addActionEntry(normalizeEntry(raw));
     renderTimeline();
   });
 }
@@ -172,6 +180,7 @@ function init() {
   }
 
   initTimeline();
+  initTimelineDrag();
 
   // Hide category panel if no categories
   if (!PROJECT_DATA.categories || PROJECT_DATA.categories.length === 0) {
@@ -223,6 +232,41 @@ window.toggleTimelinePanel = function toggleTimelinePanel() {
     panel.classList.toggle('collapsed');
   }
 };
+
+// ── Timeline panel drag ──
+function initTimelineDrag() {
+  const panel = document.getElementById('timeline-panel');
+  const header = panel?.querySelector('.tl-header');
+  if (!panel || !header) return;
+
+  let dragging = false, offsetX = 0, offsetY = 0;
+
+  header.addEventListener('mousedown', (e) => {
+    dragging = true;
+    const rect = panel.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    header.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const x = e.clientX - offsetX;
+    const y = e.clientY - offsetY;
+    panel.style.bottom = 'auto';
+    panel.style.right = 'auto';
+    panel.style.left = Math.max(0, Math.min(x, window.innerWidth - panel.offsetWidth)) + 'px';
+    panel.style.top = Math.max(0, Math.min(y, window.innerHeight - panel.offsetHeight)) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (dragging) {
+      dragging = false;
+      header.style.cursor = '';
+    }
+  });
+}
 
 // Start when DOM is loaded
 if (document.readyState === 'loading') {
