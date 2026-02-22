@@ -176,9 +176,6 @@ export function draw() {
   // Ensure DPR transform is set for crisp rendering on high-DPI displays
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   
-  // Disable image smoothing for crisper shapes and lines
-  ctx.imageSmoothingEnabled = false;
-  
   // Use crisp line rendering
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -306,12 +303,12 @@ export function draw() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = 0.9;
       ctx.font = 'bold 14px -apple-system, system-ui, sans-serif';
       ctx.fillStyle = catInfo.color || categoryColorMap[box.category] || '#7aa2f7';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(`${catInfo.label} (${catInfo.count})`, box.x + 12, box.y + 10);
+      ctx.fillText(`${catInfo.label} (${catInfo.count})`, Math.round(box.x + 12), Math.round(box.y + 10));
 
       ctx.globalAlpha = 1;
     }
@@ -459,8 +456,6 @@ function drawSceneView() {
   // Ensure DPR transform is set for crisp rendering on high-DPI displays
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   
-  // Disable image smoothing for crisper shapes and lines
-  ctx.imageSmoothingEnabled = false;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   
