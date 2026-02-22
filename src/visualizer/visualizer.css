@@ -364,7 +364,7 @@ canvas.dragging { cursor: grabbing; }
 #changes-panel {
   position: fixed;
   top: 80px;
-  left: 206px;
+  left: 230px;
   z-index: 50;
   background: transparent;
   border: none;
