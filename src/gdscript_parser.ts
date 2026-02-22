@@ -10,6 +10,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync, writeFileSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import { join, basename, dirname, relative } from 'path';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ export interface ScriptNode {
   signals: ScriptSignal[];
   preloads: string[];
   connections: ScriptConnection[];
+  gitStatus: 'modified' | 'added' | 'untracked' | null;
 }
 
 export interface ProjectEdge {
@@ -195,6 +197,42 @@ export function mapProject(
         });
       }
     }
+  }
+
+  // ── Git status detection ────────────────────────────────────────────
+  // Tag each node with git status: modified, added, untracked, or null.
+  try {
+    const gitDir = join(projectPath, '.git');
+    if (existsSync(gitDir)) {
+      const raw = execSync('git status --porcelain', {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        timeout: 5000,
+      });
+      const gitFileMap = new Map<string, 'modified' | 'added' | 'untracked'>();
+      for (const line of raw.split('\n')) {
+        if (!line.trim()) continue;
+        const xy = line.substring(0, 2);
+        const filePath = line.substring(3).trim();
+        // Handle renamed files: "R  old -> new"
+        const actualPath = filePath.includes(' -> ') ? filePath.split(' -> ')[1] : filePath;
+        const resFilePath = 'res://' + actualPath;
+
+        if (xy === '??') {
+          gitFileMap.set(resFilePath, 'untracked');
+        } else if (xy.includes('A')) {
+          gitFileMap.set(resFilePath, 'added');
+        } else {
+          // M, MM, AM, etc. — treat as modified
+          gitFileMap.set(resFilePath, 'modified');
+        }
+      }
+      for (const node of nodes) {
+        node.gitStatus = gitFileMap.get(node.path) ?? null;
+      }
+    }
+  } catch {
+    // Git not available or command failed — leave all gitStatus as null
   }
 
   return {
@@ -444,6 +482,7 @@ function parseScript(absolutePath: string, resPath: string): ScriptNode {
     signals: signalsList,
     preloads,
     connections,
+    gitStatus: null,
   };
 }
 
@@ -523,6 +562,7 @@ function emptyNode(resPath: string): ScriptNode {
     signals: [],
     preloads: [],
     connections: [],
+    gitStatus: null,
   };
 }
 

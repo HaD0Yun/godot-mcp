@@ -7,6 +7,22 @@ let wsConnected = false;
 const pendingRequests = new Map();
 let requestId = 0;
 
+const actionListeners = [];
+
+export function onActionEvent(callback) {
+  actionListeners.push(callback);
+}
+
+function handleActionEvent(msg) {
+  for (const listener of actionListeners) {
+    try {
+      listener(msg);
+    } catch (err) {
+      console.error('[visualizer] Action listener error:', err);
+    }
+  }
+}
+
 export function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${protocol}//${window.location.host}`);
@@ -29,6 +45,12 @@ export function connectWebSocket() {
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
+
+      if (msg.type === 'action_event' && !msg.id) {
+        handleActionEvent(msg);
+        return;
+      }
+
       if (msg.id && pendingRequests.has(msg.id)) {
         const { resolve, reject } = pendingRequests.get(msg.id);
         pendingRequests.delete(msg.id);

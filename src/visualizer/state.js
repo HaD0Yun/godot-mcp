@@ -120,6 +120,32 @@ function updateNodeVisibility() {
 
 updateNodeVisibility();
 
+// ── Git Changes state ──
+export let changesVisible = true;
+export function setChangesVisible(value) {
+  changesVisible = value;
+}
+
+export const actionLog = [];
+const MAX_ACTION_LOG = 100;
+export function addActionEntry(entry) {
+  actionLog.push(entry);
+  if (actionLog.length > MAX_ACTION_LOG) actionLog.shift();
+}
+
+export const gitChangeSummary = { modified: 0, added: 0, untracked: 0, new: 0 };
+// Compute summary from project data
+nodes.forEach(n => {
+  if (n.gitStatus === 'modified') gitChangeSummary.modified++;
+  else if (n.gitStatus === 'added') gitChangeSummary.added++;
+  else if (n.gitStatus === 'untracked') gitChangeSummary.untracked++;
+});
+
+export let changesFilter = null; // null = show all, or 'modified' | 'added' | 'untracked'
+export function setChangesFilter(type) {
+  changesFilter = type;
+}
+
 // View state
 export let currentView = 'scripts';
 export let sceneData = null;

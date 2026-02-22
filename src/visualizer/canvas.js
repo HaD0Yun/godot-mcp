@@ -9,7 +9,8 @@ import {
   selectedSceneNode, hoveredSceneNode, scenePositions,
   setExpandedScene, setSelectedSceneNode, setHoveredSceneNode,
   setScenePosition, scriptToScenes,
-  categoryGroupMode, categories, activeCategories, categoryColorMap
+  categoryGroupMode, categories, activeCategories, categoryColorMap,
+  changesVisible
 } from './state.js';
 
 let canvas, ctx;
@@ -274,7 +275,7 @@ export function draw() {
       ctx.fill();
 
       // Count text - scales with zoom
-      ctx.fillStyle = '#1a1a1e';
+      ctx.fillStyle = '#08090a';
       ctx.font = `bold 10px -apple-system, system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -328,23 +329,44 @@ export function draw() {
     ctx.globalAlpha = n.highlighted ? 1 : 0.12;
 
     // Shadow - fixed world-space size
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur = isHovered ? 16 : 8;
+    const hasGitGlow = changesVisible && n.gitStatus;
+    if (hasGitGlow) {
+      const glowColors = {
+        modified: 'rgba(249, 226, 175, 0.4)',
+        added: 'rgba(166, 227, 161, 0.4)',
+        untracked: 'rgba(137, 180, 250, 0.3)'
+      };
+      ctx.shadowColor = glowColors[n.gitStatus] || 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = isHovered ? 20 : 12;
+    } else {
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = isHovered ? 16 : 8;
+    }
     ctx.shadowOffsetY = 2;
 
     // Background
     ctx.beginPath();
     roundRect(ctx, x, y, NODE_W, NODE_H, 10);
-    ctx.fillStyle = isSelected ? '#35353b' : isHovered ? '#303036' : '#242428';
+    ctx.fillStyle = isSelected ? '#1e2028' : isHovered ? '#181a20' : '#0f1014';
     ctx.fill();
 
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
     // Border - fixed world-space width
-    ctx.strokeStyle = isSelected ? n.color : isHovered ? n.color : '#3a3a40';
-    ctx.lineWidth = isSelected ? 2 : 1;
+    if (changesVisible && n.gitStatus) {
+      const gitBorderColors = { modified: '#f9e2af', added: '#a6e3a1', untracked: '#89b4fa' };
+      ctx.strokeStyle = isSelected ? n.color : gitBorderColors[n.gitStatus] || 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = isSelected ? 2 : 1.5;
+      if (n.gitStatus === 'untracked') {
+        ctx.setLineDash([4, 3]);
+      }
+    } else {
+      ctx.strokeStyle = isSelected ? n.color : isHovered ? n.color : 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = isSelected ? 2 : 1;
+    }
     ctx.stroke();
+    ctx.setLineDash([]);
 
     // Left accent bar
     ctx.beginPath();
@@ -355,7 +377,7 @@ export function draw() {
     // Title - scales with node (no zoom compensation)
     const titleSize = 14;
     ctx.font = `600 ${titleSize}px -apple-system, system-ui, sans-serif`;
-    ctx.fillStyle = '#e8e4df';
+    ctx.fillStyle = '#f0f0f5';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     const displayName = n.class_name || n.filename.replace('.gd', '');
@@ -373,7 +395,7 @@ export function draw() {
     let subX = x + 16;
 
     // Extends
-    ctx.fillStyle = '#706c66';
+    ctx.fillStyle = '#484f58';
     const extendsText = (n.extends || 'Node') + ' · ';
     ctx.fillText(extendsText, subX, subY);
     subX += ctx.measureText(extendsText).width;
@@ -384,7 +406,7 @@ export function draw() {
     subX += ctx.measureText(funcCount + 'f').width;
 
     // Space
-    ctx.fillStyle = '#706c66';
+    ctx.fillStyle = '#484f58';
     ctx.fillText(' ', subX, subY);
     subX += ctx.measureText(' ').width;
 
@@ -394,7 +416,7 @@ export function draw() {
     subX += ctx.measureText(varCount + 'v').width;
 
     // Space
-    ctx.fillStyle = '#706c66';
+    ctx.fillStyle = '#484f58';
     ctx.fillText(' ', subX, subY);
     subX += ctx.measureText(' ').width;
 
@@ -404,7 +426,7 @@ export function draw() {
     subX += ctx.measureText(sigCount + 's').width;
 
     // Separator
-    ctx.fillStyle = '#706c66';
+    ctx.fillStyle = '#484f58';
     ctx.fillText(' · ', subX, subY);
     subX += ctx.measureText(' · ').width;
 
@@ -428,6 +450,27 @@ export function draw() {
       ctx.textAlign = 'right';
       ctx.fillText('📦' + usedInScenes.length, badgeX, badgeY + 4);
       ctx.textAlign = 'left';
+    }
+
+    if (changesVisible && n.gitStatus) {
+      const badgeConfigs = {
+        modified: { bg: 'rgba(249, 226, 175, 0.25)', fg: '#f9e2af', label: 'M' },
+        added:    { bg: 'rgba(166, 227, 161, 0.25)', fg: '#a6e3a1', label: '+' },
+        untracked:{ bg: 'rgba(137, 180, 250, 0.25)', fg: '#89b4fa', label: '?' }
+      };
+      const badge = badgeConfigs[n.gitStatus];
+      if (badge) {
+        const bx = x + 8;
+        const by = y + 8;
+        ctx.fillStyle = badge.bg;
+        ctx.beginPath();
+        ctx.roundRect(bx - 2, by - 4, 18, 14, 3);
+        ctx.fill();
+        ctx.fillStyle = badge.fg;
+        ctx.font = '600 9px -apple-system, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(badge.label, bx + 2, by + 5);
+      }
     }
   }
 
@@ -543,14 +586,14 @@ function drawSceneOverview() {
     // Scene card background - match script node colors
     ctx.beginPath();
     roundRect(ctx, x, y, SCENE_CARD_W, SCENE_CARD_H, 10);
-    ctx.fillStyle = isExpanded ? '#35353b' : isHovered ? '#303036' : '#242428';
+    ctx.fillStyle = isExpanded ? '#1e2028' : isHovered ? '#181a20' : '#0f1014';
     ctx.fill();
 
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
     // Border - match script node styling
-    ctx.strokeStyle = isExpanded ? sceneColor : isHovered ? sceneColor : '#3a3a40';
+    ctx.strokeStyle = isExpanded ? sceneColor : isHovered ? sceneColor : 'rgba(255,255,255,0.06)';
     ctx.lineWidth = isExpanded ? 2 : 1;
     ctx.stroke();
 
@@ -561,7 +604,7 @@ function drawSceneOverview() {
     ctx.fill();
 
     // Scene name (main label)
-    ctx.fillStyle = '#e8e4df';
+    ctx.fillStyle = '#f0f0f5';
     ctx.font = `600 13px -apple-system, system-ui, sans-serif`;
     ctx.textAlign = 'left';
     const sceneName = scene.name || scene.path.split('/').pop().replace('.tscn', '');
@@ -569,7 +612,7 @@ function drawSceneOverview() {
 
     // Root type and stats on second line
     const nodeCount = scene.node_count || (scene.nodes ? scene.nodes.length : 0);
-    ctx.fillStyle = '#706c66';
+    ctx.fillStyle = '#484f58';
     ctx.font = `11px -apple-system, system-ui, sans-serif`;
     ctx.fillText(`${scene.root_type || 'Node'} · ${nodeCount} nodes`, x + 14, y + 40);
   });
@@ -649,7 +692,7 @@ function calculateTreeLayout(hierarchy) {
 }
 
 function drawTreeConnections(nodes) {
-  ctx.strokeStyle = '#4a5568';
+  ctx.strokeStyle = '#484f58';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([]);
 
@@ -696,7 +739,7 @@ function drawSceneNode(node) {
   // Background - highlight matching nodes with a glow
   ctx.beginPath();
   roundRect(ctx, x, y, w, SCENE_NODE_H, 6);
-  ctx.fillStyle = isSelected ? '#35353b' : isHovered ? '#303036' : '#242428';
+  ctx.fillStyle = isSelected ? '#1e2028' : isHovered ? '#181a20' : '#0f1014';
   ctx.fill();
 
   ctx.shadowBlur = 0;
@@ -704,7 +747,7 @@ function drawSceneNode(node) {
 
   // Border - use accent color for highlighted search results
   const borderColor = isSelected ? nodeColor : isHovered ? nodeColor : 
-                      (isHighlighted && searchTerm ? '#f9e2af' : '#3a3a40');
+                      (isHighlighted && searchTerm ? '#f9e2af' : 'rgba(255,255,255,0.06)');
   ctx.strokeStyle = borderColor;
   ctx.lineWidth = (isSelected || (isHighlighted && searchTerm)) ? 2 : 1;
   ctx.stroke();
@@ -716,7 +759,7 @@ function drawSceneNode(node) {
   ctx.fill();
 
   // Node name
-  ctx.fillStyle = '#e8e4df';
+  ctx.fillStyle = '#f0f0f5';
   ctx.font = `600 11px -apple-system, system-ui, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
@@ -725,7 +768,7 @@ function drawSceneNode(node) {
   ctx.fillText(displayName, x + 10, y + SCENE_NODE_H / 2 - 4);
 
   // Node type (smaller, below name)
-  ctx.fillStyle = '#706c66';
+  ctx.fillStyle = '#484f58';
   ctx.font = `9px -apple-system, system-ui, sans-serif`;
   ctx.fillText(node.type, x + 10, y + SCENE_NODE_H / 2 + 7);
 
@@ -740,7 +783,7 @@ function drawSceneNode(node) {
 
   // Sibling index indicator (for node order)
   if (node.index !== undefined && node.index > 0) {
-    ctx.fillStyle = '#4a5568';
+    ctx.fillStyle = '#484f58';
     ctx.font = `9px -apple-system, system-ui, sans-serif`;
     ctx.textAlign = 'right';
     ctx.fillText(`#${node.index}`, x + w - 6, y + 10);
@@ -817,7 +860,7 @@ function getNodeTypeColor(nodeType) {
 }
 
 function drawSceneViewPlaceholder() {
-  ctx.fillStyle = '#706c66';
+  ctx.fillStyle = '#484f58';
   ctx.font = `16px -apple-system, system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText('No scenes found', 0, 0);

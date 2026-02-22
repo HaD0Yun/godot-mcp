@@ -210,3 +210,4 @@ MIT — see [LICENSE](LICENSE).
 
 - Original MCP server by [Coding-Solo](https://github.com/Coding-Solo/godot-mcp)
 - GoPeak enhancements by [HaD0Yun](https://github.com/HaD0Yun)
+ Project visualizer inspired by [tomyud1/godot-mcp](https://github.com/tomyud1/godot-mcp)

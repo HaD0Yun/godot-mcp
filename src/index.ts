@@ -31,6 +31,7 @@ import { GodotLSPClient, createLSPTools, handleLSPTool } from './lsp_client.js';
 import { GodotDAPClient, createDAPTools, handleDAPTool } from './dap_client.js';
 import { mapProject } from './gdscript_parser.js';
 import { serveVisualization, setProjectPath, stopVisualizationServer } from './visualizer-server.js';
+import { GodotBridge, getDefaultBridge } from './godot-bridge.js';
 
 // Check if debug mode is enabled
 const DEBUG_MODE: boolean = process.env.DEBUG === 'true';
@@ -86,6 +87,7 @@ class GodotServer {
   private logQueue: Array<{ filePath: string; payload: Record<string, unknown> }> = [];
   private logFlushTimer: NodeJS.Timeout | null = null;
   private readonly logFlushIntervalMs: number = 1500;
+  private godotBridge: GodotBridge;
 
   /**
    * Parameter name mappings between snake_case and camelCase
@@ -171,6 +173,9 @@ class GodotServer {
 
     // Set the path to the operations script
     this.operationsScriptPath = join(__dirname, 'scripts', 'godot_operations.gd');
+
+    // Initialize the Godot Editor Bridge (WebSocket server for editor plugin)
+    this.godotBridge = getDefaultBridge();
     if (debugMode) console.error(`[DEBUG] Operations script path: ${this.operationsScriptPath}`);
 
     // Initialize the MCP server
@@ -2106,6 +2111,10 @@ class GodotServer {
                 type: 'string',
                 description: 'Optional: template name - "singleton", "state_machine", "component", "resource"',
               },
+              reason: {
+                type: 'string',
+                description: 'Optional reason/context for this change. Displayed in visualizer audit timeline.',
+              },
             },
             required: ['projectPath', 'scriptPath'],
           },
@@ -2177,6 +2186,10 @@ class GodotServer {
                   },
                   required: ['type', 'name'],
                 },
+              },
+              reason: {
+                type: 'string',
+                description: 'Optional reason/context for this change. Displayed in visualizer audit timeline.',
               },
             },
             required: ['projectPath', 'scriptPath', 'modifications'],
@@ -3001,6 +3014,15 @@ class GodotServer {
             required: ['x', 'y'],
           },
         },
+        // Editor Plugin Bridge Status
+        {
+          name: 'get_editor_status',
+          description: 'Returns the connection status of the Godot Editor Plugin bridge. Use to check if the editor is connected before using scene/resource tools that require the editor plugin.',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
         // Project Visualizer Tool
         {
           name: 'map_project',
@@ -3069,30 +3091,30 @@ class GodotServer {
         case 'get_recording_mode':
           return await this.handleGetRecordingMode();
         case 'create_scene':
-          return await this.handleCreateScene(request.params.arguments);
+          return await this.handleViaBridge('create_scene', request.params.arguments);
         case 'add_node':
-          return await this.handleAddNode(request.params.arguments);
+          return await this.handleViaBridge('add_node', request.params.arguments);
         case 'load_sprite':
-          return await this.handleLoadSprite(request.params.arguments);
+          return await this.handleViaBridge('load_sprite', request.params.arguments);
         case 'save_scene':
-          return await this.handleSaveScene(request.params.arguments);
+          return await this.handleViaBridge('save_scene', request.params.arguments);
         case 'get_uid':
           return await this.handleGetUid(request.params.arguments);
         case 'update_project_uids':
           return await this.handleUpdateProjectUids(request.params.arguments);
         // Phase 1: Scene Operations handlers
         case 'list_scene_nodes':
-          return await this.handleListSceneNodes(request.params.arguments);
+          return await this.handleViaBridge('list_scene_nodes', request.params.arguments);
         case 'get_node_properties':
-          return await this.handleGetNodeProperties(request.params.arguments);
+          return await this.handleViaBridge('get_node_properties', request.params.arguments);
         case 'set_node_properties':
-          return await this.handleSetNodeProperties(request.params.arguments);
+          return await this.handleViaBridge('set_node_properties', request.params.arguments);
         case 'delete_node':
-          return await this.handleDeleteNode(request.params.arguments);
+          return await this.handleViaBridge('delete_node', request.params.arguments);
         case 'duplicate_node':
-          return await this.handleDuplicateNode(request.params.arguments);
+          return await this.handleViaBridge('duplicate_node', request.params.arguments);
         case 'reparent_node':
-          return await this.handleReparentNode(request.params.arguments);
+          return await this.handleViaBridge('reparent_node', request.params.arguments);
         // Phase 2: Import/Export Pipeline handlers
         case 'get_import_status':
           return await this.handleGetImportStatus(request.params.arguments);
@@ -3132,11 +3154,11 @@ class GodotServer {
           return await this.handleSetMainScene(request.params.arguments);
         // Signal Management handlers
         case 'connect_signal':
-          return await this.handleConnectSignal(request.params.arguments);
+          return await this.handleViaBridge('connect_signal', request.params.arguments);
         case 'disconnect_signal':
-          return await this.handleDisconnectSignal(request.params.arguments);
+          return await this.handleViaBridge('disconnect_signal', request.params.arguments);
         case 'list_connections':
-          return await this.handleListConnections(request.params.arguments);
+          return await this.handleViaBridge('list_connections', request.params.arguments);
         // Phase 4: Runtime Tools handlers
         case 'get_runtime_status':
           return await this.handleGetRuntimeStatus(request.params.arguments);
@@ -3150,11 +3172,11 @@ class GodotServer {
           return await this.handleGetRuntimeMetrics(request.params.arguments);
         // Resource Creation Tools handlers
         case 'create_resource':
-          return await this.handleCreateResource(request.params.arguments);
+          return await this.handleViaBridge('create_resource', request.params.arguments);
         case 'create_material':
-          return await this.handleCreateMaterial(request.params.arguments);
+          return await this.handleViaBridge('create_material', request.params.arguments);
         case 'create_shader':
-          return await this.handleCreateShader(request.params.arguments);
+          return await this.handleViaBridge('create_shader', request.params.arguments);
         // GDScript File Operations handlers
         case 'create_script':
           return await this.handleCreateScript(request.params.arguments);
@@ -3164,9 +3186,9 @@ class GodotServer {
           return await this.handleGetScriptInfo(request.params.arguments);
         // Animation Tools handlers
         case 'create_animation':
-          return await this.handleCreateAnimation(request.params.arguments);
+          return await this.handleViaBridge('create_animation', request.params.arguments);
         case 'add_animation_track':
-          return await this.handleAddAnimationTrack(request.params.arguments);
+          return await this.handleViaBridge('add_animation_track', request.params.arguments);
         // Plugin Management handlers
         case 'list_plugins':
           return await this.handleListPlugins(request.params.arguments);
@@ -3182,9 +3204,9 @@ class GodotServer {
           return await this.handleSearchProject(request.params.arguments);
         // 2D Tile Tools handlers
         case 'create_tileset':
-          return await this.handleCreateTileset(request.params.arguments);
+          return await this.handleViaBridge('create_tileset', request.params.arguments);
         case 'set_tilemap_cells':
-          return await this.handleSetTilemapCells(request.params.arguments);
+          return await this.handleViaBridge('set_tilemap_cells', request.params.arguments);
         // Audio System Tools handlers
         case 'create_audio_bus':
           return await this.handleCreateAudioBus(request.params.arguments);
@@ -3198,24 +3220,24 @@ class GodotServer {
         // Physics Tools handlers
         // Navigation Tools handlers
         case 'create_navigation_region':
-          return await this.handleCreateNavigationRegion(request.params.arguments);
+          return await this.handleViaBridge('create_navigation_region', request.params.arguments);
         case 'create_navigation_agent':
-          return await this.handleCreateNavigationAgent(request.params.arguments);
+          return await this.handleViaBridge('create_navigation_agent', request.params.arguments);
         // Rendering Tools handlers
         // Animation Tree Tools handlers
         case 'create_animation_tree':
-          return await this.handleCreateAnimationTree(request.params.arguments);
+          return await this.handleViaBridge('create_animation_tree', request.params.arguments);
         case 'add_animation_state':
-          return await this.handleAddAnimationState(request.params.arguments);
+          return await this.handleViaBridge('add_animation_state', request.params.arguments);
         case 'connect_animation_states':
-          return await this.handleConnectAnimationStates(request.params.arguments);
+          return await this.handleViaBridge('connect_animation_states', request.params.arguments);
         // UI/Theme Tools handlers
         case 'set_theme_color':
-          return await this.handleSetThemeColor(request.params.arguments);
+          return await this.handleViaBridge('set_theme_color', request.params.arguments);
         case 'set_theme_font_size':
-          return await this.handleSetThemeFontSize(request.params.arguments);
+          return await this.handleViaBridge('set_theme_font_size', request.params.arguments);
         case 'apply_theme_shader':
-          return await this.handleApplyThemeShader(request.params.arguments);
+          return await this.handleViaBridge('apply_theme_shader', request.params.arguments);
         case 'search_assets':
           return await this.handleSearchAssets(request.params.arguments);
         case 'fetch_asset':
@@ -3231,7 +3253,10 @@ class GodotServer {
           return await this.handleInspectInheritance(request.params.arguments);
         // Resource Modification Tool
         case 'modify_resource':
-          return await this.handleModifyResource(request.params.arguments);
+          return await this.handleViaBridge('modify_resource', request.params.arguments);
+        // Editor Plugin Bridge Status
+        case 'get_editor_status':
+          return { content: [{ type: 'text', text: JSON.stringify(this.godotBridge.getStatus(), null, 2) }] };
         // Project Visualizer Tool
         case 'map_project':
           return await this.handleMapProject(request.params.arguments);
@@ -3450,6 +3475,33 @@ class GodotServer {
           'Verify the project path is accessible',
         ]
       );
+    }
+  }
+
+  /**
+   * Route a tool call through the Godot Editor Plugin bridge (WebSocket).
+   * Returns an error response if the editor is not connected.
+   */
+  private async handleViaBridge(toolName: string, args: any): Promise<any> {
+    if (!this.godotBridge.isConnected()) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          error: 'Godot Editor not connected. Launch Godot Editor and enable the "Godot MCP Editor" plugin to use this tool.',
+          suggestion: 'Use the launch_editor tool to open the Godot Editor, then enable the plugin in Project > Project Settings > Plugins.',
+        }, null, 2) }],
+        isError: true,
+      };
+    }
+    try {
+      const result = await this.godotBridge.invokeTool(toolName, args);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          error: error instanceof Error ? error.message : String(error),
+        }, null, 2) }],
+        isError: true,
+      };
     }
   }
 
@@ -7913,6 +7965,10 @@ class GodotServer {
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
       console.error('Godot MCP server running on stdio');
+
+      // Start the Godot Editor Bridge (WebSocket server for editor plugin)
+      await this.godotBridge.start();
+      console.error('[SERVER] Godot Editor Bridge started on port 6505');
 
       this.startHealthServer();
     } catch (error: unknown) {
