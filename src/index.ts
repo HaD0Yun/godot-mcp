@@ -29,6 +29,8 @@ import { PRIORITY_1_TOOLS, handlePriority1Tools } from './tools.js';
 import { setupResourceHandlers } from './resources.js';
 import { GodotLSPClient, createLSPTools, handleLSPTool } from './lsp_client.js';
 import { GodotDAPClient, createDAPTools, handleDAPTool } from './dap_client.js';
+import { mapProject } from './gdscript_parser.js';
+import { serveVisualization, setProjectPath, stopVisualizationServer } from './visualizer-server.js';
 
 // Check if debug mode is enabled
 const DEBUG_MODE: boolean = process.env.DEBUG === 'true';
@@ -2999,6 +3001,20 @@ class GodotServer {
             required: ['x', 'y'],
           },
         },
+        // Project Visualizer Tool
+        {
+          name: 'map_project',
+          description: 'Crawl the entire Godot project and build an interactive visual map of all scripts showing their structure (variables, functions, signals), connections (extends, preloads, signal connections), and descriptions. Opens an interactive browser-based visualization at localhost:6510.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: { type: 'string', description: 'Absolute path to the Godot project directory' },
+              root: { type: 'string', description: 'Root path to start crawling from (default: res://)' },
+              include_addons: { type: 'boolean', description: 'Whether to include scripts in addons/ folder (default: false)' },
+            },
+            required: ['projectPath'],
+          },
+        },
         // Godot LSP Tools (GDScript diagnostics via Godot editor LSP on port 6005)
         ...createLSPTools(),
         // Godot DAP Tools (Debug Adapter Protocol via Godot editor DAP on port 6006)
@@ -3216,6 +3232,9 @@ class GodotServer {
         // Resource Modification Tool
         case 'modify_resource':
           return await this.handleModifyResource(request.params.arguments);
+        // Project Visualizer Tool
+        case 'map_project':
+          return await this.handleMapProject(request.params.arguments);
         case 'capture_screenshot':
           return await this.handleRuntimeCommand('capture_screenshot', request.params.arguments);
         case 'capture_viewport':
@@ -8861,6 +8880,42 @@ uniform float dissolve_amount : hint_range(0.0, 1.0) = 0.0;
       params.properties = typeof args.properties === 'string' ? JSON.parse(args.properties) : args.properties;
     }
     return await this.executeOperation('modify_resource', params, projectPath);
+  }
+
+  private async handleMapProject(args: any) {
+    const projectPath = args?.projectPath || args?.project_path;
+    if (!projectPath) {
+      throw new McpError(ErrorCode.InvalidParams, 'projectPath is required');
+    }
+    const root = (args?.root as string) || 'res://';
+    const includeAddons = (args?.include_addons as boolean) || false;
+
+    const result = mapProject(projectPath, root, includeAddons);
+    if (!result.ok || !result.project_map) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: result.error || 'Failed to map project' }) }],
+        isError: true,
+      };
+    }
+
+    setProjectPath(projectPath);
+    try {
+      const url = await serveVisualization(result.project_map);
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          ok: true,
+          url,
+          total_scripts: result.project_map.total_scripts,
+          total_connections: result.project_map.total_connections,
+          message: `Interactive project map opened at ${url} — ${result.project_map.total_scripts} scripts, ${result.project_map.total_connections} connections`,
+        }, null, 2) }],
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: `Failed to start visualizer: ${errMsg}`, project_map: result.project_map }) }],
+      };
+    }
   }
 }
 
