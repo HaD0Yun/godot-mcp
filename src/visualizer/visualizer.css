@@ -364,31 +364,31 @@ canvas.dragging { cursor: grabbing; }
 #changes-panel {
   position: fixed;
   top: 80px;
-  left: 230px;
+  left: 218px;
   z-index: 50;
   background: transparent;
   border: none;
-  border-radius: var(--radius-lg);
-  padding: var(--space-md);
-  min-width: 110px;
-  max-width: 170px;
-  width: 170px;
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  min-width: 90px;
+  max-width: 130px;
+  width: 130px;
   box-shadow: none;
-  font-size: var(--font-small);
+  font-size: var(--font-micro);
 }
 
 .changes-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: var(--space-sm);
-  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-xs);
+  margin-bottom: var(--space-xs);
 }
 
 .changes-title {
   font-weight: 800;
   color: var(--text-primary);
-  font-size: 24px;
+  font-size: 18px;
   letter-spacing: -0.03em;
 }
 
@@ -396,8 +396,8 @@ canvas.dragging { cursor: grabbing; }
 .changes-toggle {
   position: relative;
   display: inline-block;
-  width: 26px;
-  height: 14px;
+  width: 22px;
+  height: 12px;
   cursor: pointer;
 }
 
@@ -415,15 +415,15 @@ canvas.dragging { cursor: grabbing; }
   right: 0;
   bottom: 0;
   background-color: var(--bg-tertiary);
-  border-radius: 14px;
+  border-radius: 12px;
   transition: 0.15s;
 }
 
 .changes-toggle-slider::before {
   position: absolute;
   content: "";
-  height: 10px;
-  width: 10px;
+  height: 8px;
+  width: 8px;
   left: 2px;
   bottom: 2px;
   background-color: var(--text-muted);
@@ -437,18 +437,18 @@ canvas.dragging { cursor: grabbing; }
 
 .changes-toggle input:checked + .changes-toggle-slider::before {
   background-color: #f9e2af;
-  transform: translateX(12px);
+  transform: translateX(10px);
 }
 
 .changes-stats {
-  margin-bottom: var(--space-xs);
+  margin-bottom: 2px;
 }
 
 .changes-stat-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px var(--space-xs);
+  gap: 5px;
+  padding: 5px var(--space-xs);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.12s;
@@ -464,8 +464,8 @@ canvas.dragging { cursor: grabbing; }
 }
 
 .changes-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
@@ -481,18 +481,18 @@ canvas.dragging { cursor: grabbing; }
 
 .changes-count {
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 9px;
   font-family: var(--font-mono);
   font-weight: 600;
   flex-shrink: 0;
 }
 
 .changes-total {
-  font-size: var(--font-micro);
+  font-size: 8px;
   font-weight: 500;
   color: var(--text-muted);
   text-align: center;
-  padding-top: var(--space-xs);
+  padding-top: 3px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
