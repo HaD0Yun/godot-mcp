@@ -6,10 +6,10 @@
 import { spawn } from 'node:child_process';
 import { WebSocket } from 'ws';
 import { setTimeout as delay } from 'node:timers/promises';
-import { randomUUID } from 'node:crypto';
 
 const MCP_SERVER = './build/index.js';
-const WS_URL = 'ws://127.0.0.1:6505';
+const GODOT_WS_URL = 'ws://127.0.0.1:6505/godot';
+const VIZ_WS_URL = 'ws://127.0.0.1:6505/visualizer';
 const GODOT_PATH = process.env.GODOT_PATH || '/home/doyun/Apps/godot-4.6-rc2/Godot_v4.6-rc2_linux.x86_64';
 
 let passed = 0;
@@ -173,16 +173,32 @@ async function main() {
     fail('create_scene without Godot', 'No response');
   }
 
-  // 7. Test WebSocket connection (mock Godot client)
+  // 7. Test visualizer WebSocket path routing
+  console.log('\n🖥️ Testing visualizer WebSocket path...');
+  try {
+    const vizWs = await new Promise((resolve, reject) => {
+      const socket = new WebSocket(VIZ_WS_URL);
+      socket.on('open', () => resolve(socket));
+      socket.on('error', reject);
+      setTimeout(() => reject(new Error('Visualizer WS connect timeout')), 3000);
+    });
+    ok('Visualizer WebSocket connected to /visualizer');
+    vizWs.close();
+    await delay(200);
+  } catch (e) {
+    fail('Visualizer WebSocket path', e.message);
+  }
+
+  // 8. Test WebSocket connection (mock Godot client)
   console.log('\n🌐 Testing WebSocket bridge...');
   try {
     const ws = await new Promise((resolve, reject) => {
-      const socket = new WebSocket(WS_URL);
+      const socket = new WebSocket(GODOT_WS_URL);
       socket.on('open', () => resolve(socket));
       socket.on('error', reject);
       setTimeout(() => reject(new Error('WS connect timeout')), 3000);
     });
-    ok('WebSocket connected to port 6505');
+    ok('Godot WebSocket connected to /godot');
 
     // Send godot_ready
     ws.send(JSON.stringify({

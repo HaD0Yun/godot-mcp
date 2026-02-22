@@ -3029,7 +3029,7 @@ class GodotServer {
         // Project Visualizer Tool
         {
           name: 'map_project',
-          description: 'Crawl the entire Godot project and build an interactive visual map of all scripts showing their structure (variables, functions, signals), connections (extends, preloads, signal connections), and descriptions. Opens an interactive browser-based visualization at localhost:6510.',
+          description: 'Crawl the entire Godot project and build an interactive visual map of all scripts showing their structure (variables, functions, signals), connections (extends, preloads, signal connections), and descriptions. Opens an interactive browser-based visualization at localhost:6505.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -8959,7 +8959,7 @@ uniform float dissolve_amount : hint_range(0.0, 1.0) = 0.0;
 
     setProjectPath(projectPath);
     try {
-      const url = await serveVisualization(result.project_map);
+      const url = await serveVisualization(result.project_map, this.godotBridge);
       return {
         content: [{ type: 'text', text: JSON.stringify({
           ok: true,

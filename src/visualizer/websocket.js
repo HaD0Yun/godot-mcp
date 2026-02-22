@@ -25,7 +25,7 @@ function handleActionEvent(msg) {
 
 export function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${window.location.host}`);
+  ws = new WebSocket(`${protocol}//${window.location.host}/visualizer`);
 
   ws.onopen = () => {
     wsConnected = true;

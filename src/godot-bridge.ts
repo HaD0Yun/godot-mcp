@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import http from 'node:http';
 import type { RawData } from 'ws';
 import { WebSocket, WebSocketServer } from 'ws';
 
@@ -38,6 +40,13 @@ export interface GodotReadyMessage {
 type IncomingMessage = ToolResultMessage | PongMessage | GodotReadyMessage;
 type OutgoingMessage = ToolInvokeMessage | PingMessage;
 
+type BridgeEventMap = {
+  tool_start: { tool: string; id: string; args: Record<string, unknown> };
+  tool_end: { tool: string; id: string; success: boolean; duration: number };
+  godot_connected: { projectPath?: string };
+  godot_disconnected: Record<string, never>;
+};
+
 interface PendingRequest {
   toolName: string;
   timeout: NodeJS.Timeout;
@@ -63,48 +72,78 @@ interface BridgeStatus {
   queuedResources: number;
 }
 
-export class GodotBridge {
-  private server: WebSocketServer | null = null;
+export class GodotBridge extends EventEmitter {
+  private httpServer: http.Server | null = null;
+  private godotWss: WebSocketServer | null = null;
+  private vizWss: WebSocketServer | null = null;
   private socket: WebSocket | null = null;
   private pingInterval: NodeJS.Timeout | null = null;
   private connectionInfo: GodotConnectionInfo | null = null;
   private pendingRequests = new Map<string, PendingRequest>();
   private resourceQueues = new Map<string, Promise<void>>();
+  private visualizerHtml = this.getDefaultVisualizerHtml();
 
   public constructor(
     private readonly port: number = DEFAULT_PORT,
     private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
-  ) {}
+  ) {
+    super();
+  }
 
   public start(): Promise<void> {
-    if (this.server) {
+    if (this.httpServer) {
       return Promise.resolve();
     }
 
     return new Promise((resolve, reject) => {
-      const wss = new WebSocketServer({ port: this.port });
+      const server = http.createServer((req, res) => {
+        this.handleHttpRequest(req, res);
+      });
+      const godotWss = new WebSocketServer({ noServer: true });
+      const vizWss = new WebSocketServer({ noServer: true });
       let settled = false;
 
-      wss.once('listening', () => {
+      server.on('upgrade', (request, socket, head) => {
+        const pathname = this.getRequestPathname(request.url);
+        const target = pathname === '/godot' ? godotWss : vizWss;
+
+        target.handleUpgrade(request, socket, head, (ws) => {
+          target.emit('connection', ws, request);
+        });
+      });
+
+      godotWss.on('connection', (socket) => {
+        this.handleConnection(socket);
+      });
+
+      server.once('listening', () => {
         settled = true;
-        this.server = wss;
-        this.log('info', `WebSocket bridge listening on port ${this.port}`);
+        this.httpServer = server;
+        this.godotWss = godotWss;
+        this.vizWss = vizWss;
+        this.log('info', `Unified HTTP+WS bridge listening on port ${this.port}`);
         resolve();
       });
 
-      wss.once('error', (error) => {
+      server.once('error', (error) => {
         if (!settled) {
           settled = true;
           reject(error);
           return;
         }
 
-        this.log('error', `WebSocket server error: ${error.message}`);
+        this.log('error', `HTTP server error: ${error.message}`);
       });
 
-      wss.on('connection', (socket) => {
-        this.handleConnection(socket);
+      godotWss.on('error', (error) => {
+        this.log('error', `Godot WebSocket server error: ${error.message}`);
       });
+
+      vizWss.on('error', (error) => {
+        this.log('error', `Visualizer WebSocket server error: ${error.message}`);
+      });
+
+      server.listen(this.port);
     });
   }
 
@@ -121,12 +160,35 @@ export class GodotBridge {
       this.socket = null;
     }
 
-    if (this.server) {
-      this.server.close();
-      this.server = null;
+    if (this.godotWss) {
+      for (const client of this.godotWss.clients) {
+        try {
+          client.close();
+        } catch {
+        }
+      }
+      this.godotWss.close();
+      this.godotWss = null;
+    }
+
+    if (this.vizWss) {
+      for (const client of this.vizWss.clients) {
+        try {
+          client.close();
+        } catch {
+        }
+      }
+      this.vizWss.close();
+      this.vizWss = null;
+    }
+
+    if (this.httpServer) {
+      this.httpServer.close();
+      this.httpServer = null;
     }
 
     this.connectionInfo = null;
+    this.visualizerHtml = this.getDefaultVisualizerHtml();
     this.log('info', 'WebSocket bridge stopped');
   }
 
@@ -155,6 +217,73 @@ export class GodotBridge {
     return this.enqueueResourceRequest(resourceKey, () => this.invokeToolDirect(toolName, args, resourceKey));
   }
 
+  public getVisualizerWss(): WebSocketServer | null {
+    return this.vizWss;
+  }
+
+  public broadcastToVisualizer(message: object): void {
+    if (!this.vizWss) {
+      return;
+    }
+
+    const payload = JSON.stringify(message);
+    this.vizWss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
+    });
+  }
+
+  public setVisualizerHtml(html: string): void {
+    this.visualizerHtml = html;
+  }
+
+  private handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+
+    const pathname = this.getRequestPathname(req.url);
+    if (pathname === '/health') {
+      const payload = {
+        status: 'ok',
+        serverName: 'godot-mcp',
+        version: '2.0.1',
+        bridge: this.getStatus(),
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+      };
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+
+    if (pathname === '/' || pathname === '/index.html') {
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(this.visualizerHtml);
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  }
+
+  private getRequestPathname(url: string | undefined): string {
+    try {
+      return new URL(url ?? '/', `http://localhost:${this.port}`).pathname;
+    } catch {
+      return '/';
+    }
+  }
+
   private handleConnection(nextSocket: WebSocket): void {
     if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
       this.log('warn', 'Rejecting second Godot connection');
@@ -169,6 +298,7 @@ export class GodotBridge {
 
     this.startKeepalive();
     this.log('info', 'Godot editor connected');
+    this.emitBridgeEvent('godot_connected', { projectPath: this.connectionInfo.projectPath });
 
     nextSocket.on('message', (data) => {
       this.handleRawMessage(data);
@@ -214,7 +344,14 @@ export class GodotBridge {
 
         clearTimeout(pending.timeout);
         this.pendingRequests.delete(message.id);
-        this.log('debug', `Tool ${pending.toolName} finished in ${Date.now() - pending.startedAt}ms`);
+        const duration = Date.now() - pending.startedAt;
+        this.log('debug', `Tool ${pending.toolName} finished in ${duration}ms`);
+        this.emitBridgeEvent('tool_end', {
+          tool: pending.toolName,
+          id: message.id,
+          success: message.success,
+          duration,
+        });
 
         if (message.success) {
           pending.resolve(message.result);
@@ -228,6 +365,7 @@ export class GodotBridge {
         if (this.connectionInfo) {
           this.connectionInfo.projectPath = message.project_path;
           this.log('info', `Godot ready: ${message.project_path}`);
+          this.emitBridgeEvent('godot_connected', { projectPath: message.project_path });
         }
         return;
 
@@ -269,6 +407,12 @@ export class GodotBridge {
         reject,
         startedAt: Date.now(),
         resourceKey,
+      });
+
+      this.emitBridgeEvent('tool_start', {
+        tool: toolName,
+        id: requestId,
+        args,
       });
 
       try {
@@ -320,9 +464,29 @@ export class GodotBridge {
 
     this.socket = null;
     this.connectionInfo = null;
+    this.emitBridgeEvent('godot_disconnected', {});
 
     this.rejectAllPending(reason);
     this.resourceQueues.clear();
+  }
+
+  private emitBridgeEvent<K extends keyof BridgeEventMap>(eventName: K, payload: BridgeEventMap[K]): void {
+    this.emit(eventName, payload);
+  }
+
+  private getDefaultVisualizerHtml(): string {
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Godot MCP Visualizer</title>
+  </head>
+  <body>
+    <h1>Godot MCP Visualizer</h1>
+    <p>Run the map_project tool to load visualization data.</p>
+  </body>
+</html>`;
   }
 
   private rejectAllPending(error: Error): void {
