@@ -2106,6 +2106,10 @@ class GodotServer {
                 type: 'string',
                 description: 'Optional: template name - "singleton", "state_machine", "component", "resource"',
               },
+              reason: {
+                type: 'string',
+                description: 'Optional reason/context for this change. Displayed in visualizer audit timeline.',
+              },
             },
             required: ['projectPath', 'scriptPath'],
           },
@@ -2177,6 +2181,10 @@ class GodotServer {
                   },
                   required: ['type', 'name'],
                 },
+              },
+              reason: {
+                type: 'string',
+                description: 'Optional reason/context for this change. Displayed in visualizer audit timeline.',
               },
             },
             required: ['projectPath', 'scriptPath', 'modifications'],

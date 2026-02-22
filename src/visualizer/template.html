@@ -55,6 +55,50 @@
   <div class="cat-list" id="cat-list"></div>
 </div>
 
+<!-- Changes Panel -->
+<div id="changes-panel">
+  <div class="changes-header">
+    <span class="changes-title">Changes</span>
+    <label class="changes-toggle">
+      <input type="checkbox" id="changes-toggle-input" checked onchange="toggleChangesVisible()">
+      <span class="changes-toggle-slider"></span>
+    </label>
+  </div>
+  <div class="changes-stats" id="changes-stats">
+    <div class="changes-stat-row" data-type="modified" onclick="filterByChangeType('modified')">
+      <span class="changes-dot" style="background:#f9e2af"></span>
+      <span class="changes-label">Modified</span>
+      <span class="changes-count" id="changes-modified-count">0</span>
+    </div>
+    <div class="changes-stat-row" data-type="added" onclick="filterByChangeType('added')">
+      <span class="changes-dot" style="background:#a6e3a1"></span>
+      <span class="changes-label">Added</span>
+      <span class="changes-count" id="changes-added-count">0</span>
+    </div>
+    <div class="changes-stat-row" data-type="untracked" onclick="filterByChangeType('untracked')">
+      <span class="changes-dot" style="background:#89b4fa"></span>
+      <span class="changes-label">Untracked</span>
+      <span class="changes-count" id="changes-untracked-count">0</span>
+    </div>
+  </div>
+  <div class="changes-total" id="changes-total">0 changed files</div>
+</div>
+
+<!-- Timeline Panel -->
+<div id="timeline-panel">
+  <div class="tl-header" onclick="toggleTimelinePanel()">
+    <span class="tl-title">Activity</span>
+    <span class="tl-count" id="tl-count">0</span>
+    <svg class="tl-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </div>
+  <div class="tl-body" id="tl-body">
+    <div class="tl-empty" id="tl-empty">No actions recorded yet</div>
+    <div class="tl-list" id="tl-list"></div>
+  </div>
+</div>
+
 <!-- View Tabs -->
 <div id="view-tabs">
   <button class="active" onclick="switchView('scripts')">Scripts</button>

@@ -9,7 +9,8 @@ import {
   selectedSceneNode, hoveredSceneNode, scenePositions,
   setExpandedScene, setSelectedSceneNode, setHoveredSceneNode,
   setScenePosition, scriptToScenes,
-  categoryGroupMode, categories, activeCategories, categoryColorMap
+  categoryGroupMode, categories, activeCategories, categoryColorMap,
+  changesVisible
 } from './state.js';
 
 let canvas, ctx;
@@ -328,8 +329,19 @@ export function draw() {
     ctx.globalAlpha = n.highlighted ? 1 : 0.12;
 
     // Shadow - fixed world-space size
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur = isHovered ? 16 : 8;
+    const hasGitGlow = changesVisible && n.gitStatus;
+    if (hasGitGlow) {
+      const glowColors = {
+        modified: 'rgba(249, 226, 175, 0.4)',
+        added: 'rgba(166, 227, 161, 0.4)',
+        untracked: 'rgba(137, 180, 250, 0.3)'
+      };
+      ctx.shadowColor = glowColors[n.gitStatus] || 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = isHovered ? 20 : 12;
+    } else {
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = isHovered ? 16 : 8;
+    }
     ctx.shadowOffsetY = 2;
 
     // Background
@@ -342,9 +354,19 @@ export function draw() {
     ctx.shadowOffsetY = 0;
 
     // Border - fixed world-space width
-    ctx.strokeStyle = isSelected ? n.color : isHovered ? n.color : '#3a3a40';
-    ctx.lineWidth = isSelected ? 2 : 1;
+    if (changesVisible && n.gitStatus) {
+      const gitBorderColors = { modified: '#f9e2af', added: '#a6e3a1', untracked: '#89b4fa' };
+      ctx.strokeStyle = isSelected ? n.color : gitBorderColors[n.gitStatus] || '#3a3a40';
+      ctx.lineWidth = isSelected ? 2 : 1.5;
+      if (n.gitStatus === 'untracked') {
+        ctx.setLineDash([4, 3]);
+      }
+    } else {
+      ctx.strokeStyle = isSelected ? n.color : isHovered ? n.color : '#3a3a40';
+      ctx.lineWidth = isSelected ? 2 : 1;
+    }
     ctx.stroke();
+    ctx.setLineDash([]);
 
     // Left accent bar
     ctx.beginPath();
@@ -428,6 +450,27 @@ export function draw() {
       ctx.textAlign = 'right';
       ctx.fillText('📦' + usedInScenes.length, badgeX, badgeY + 4);
       ctx.textAlign = 'left';
+    }
+
+    if (changesVisible && n.gitStatus) {
+      const badgeConfigs = {
+        modified: { bg: 'rgba(249, 226, 175, 0.25)', fg: '#f9e2af', label: 'M' },
+        added:    { bg: 'rgba(166, 227, 161, 0.25)', fg: '#a6e3a1', label: '+' },
+        untracked:{ bg: 'rgba(137, 180, 250, 0.25)', fg: '#89b4fa', label: '?' }
+      };
+      const badge = badgeConfigs[n.gitStatus];
+      if (badge) {
+        const bx = x + 8;
+        const by = y + 8;
+        ctx.fillStyle = badge.bg;
+        ctx.beginPath();
+        ctx.roundRect(bx - 2, by - 4, 18, 14, 3);
+        ctx.fill();
+        ctx.fillStyle = badge.fg;
+        ctx.font = '600 9px -apple-system, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(badge.label, bx + 2, by + 5);
+      }
     }
   }
 
