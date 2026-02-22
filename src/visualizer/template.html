@@ -13,6 +13,12 @@
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
   <input type="text" id="search" placeholder="Search scripts..." />
   <span class="stats" id="stats"></span>
+  <button id="refresh-btn" onclick="refreshProject()" title="Refresh project (re-scan files & git status)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M23 4v6h-6M1 20v-6h6"/>
+      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+    </svg>
+  </button>
 </div>
 
 <div id="legend">
