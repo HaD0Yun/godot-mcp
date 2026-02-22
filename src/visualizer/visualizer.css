@@ -238,14 +238,14 @@ canvas.dragging { cursor: grabbing; }
   background: transparent;
   border: none;
   border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  min-width: 140px;
-  max-width: 220px;
-  width: 220px;
+  padding: var(--space-md);
+  min-width: 110px;
+  max-width: 170px;
+  width: 170px;
   max-height: calc(100vh - 130px);
   overflow-y: auto;
   box-shadow: none;
-  font-size: var(--font-body);
+  font-size: var(--font-small);
 }
 
 #category-panel::-webkit-scrollbar { width: 3px; }
@@ -256,20 +256,20 @@ canvas.dragging { cursor: grabbing; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: var(--space-md);
-  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-sm);
 }
 
 .cat-title {
   font-weight: 800;
   color: var(--text-primary);
-  font-size: var(--font-h1);
+  font-size: 24px;
   letter-spacing: -0.03em;
 }
 
 .cat-controls {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .cat-mode-btn,
@@ -286,13 +286,13 @@ canvas.dragging { cursor: grabbing; }
 }
 
 .cat-mode-btn {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   padding: 0;
 }
 
 .cat-all-btn {
-  padding: 6px 12px;
+  padding: 4px 8px;
   font-size: var(--font-micro);
   font-weight: 600;
   text-transform: uppercase;
@@ -313,8 +313,8 @@ canvas.dragging { cursor: grabbing; }
 .cat-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px var(--space-sm);
+  gap: 6px;
+  padding: 7px var(--space-xs);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.12s;
@@ -330,8 +330,8 @@ canvas.dragging { cursor: grabbing; }
 }
 
 .cat-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
@@ -339,7 +339,7 @@ canvas.dragging { cursor: grabbing; }
 .cat-label {
   flex: 1;
   color: var(--text-primary);
-  font-size: var(--font-small);
+  font-size: var(--font-micro);
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -350,7 +350,7 @@ canvas.dragging { cursor: grabbing; }
 
 .cat-count {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 10px;
   font-family: var(--font-mono);
   font-weight: 600;
   flex-shrink: 0;
@@ -364,31 +364,31 @@ canvas.dragging { cursor: grabbing; }
 #changes-panel {
   position: fixed;
   top: 80px;
-  left: 260px;
+  left: 206px;
   z-index: 50;
   background: transparent;
   border: none;
   border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  min-width: 140px;
-  max-width: 220px;
-  width: 220px;
+  padding: var(--space-md);
+  min-width: 110px;
+  max-width: 170px;
+  width: 170px;
   box-shadow: none;
-  font-size: var(--font-body);
+  font-size: var(--font-small);
 }
 
 .changes-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: var(--space-md);
-  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-sm);
 }
 
 .changes-title {
   font-weight: 800;
   color: var(--text-primary);
-  font-size: var(--font-h1);
+  font-size: 24px;
   letter-spacing: -0.03em;
 }
 
@@ -396,8 +396,8 @@ canvas.dragging { cursor: grabbing; }
 .changes-toggle {
   position: relative;
   display: inline-block;
-  width: 32px;
-  height: 18px;
+  width: 26px;
+  height: 14px;
   cursor: pointer;
 }
 
@@ -415,17 +415,17 @@ canvas.dragging { cursor: grabbing; }
   right: 0;
   bottom: 0;
   background-color: var(--bg-tertiary);
-  border-radius: 18px;
+  border-radius: 14px;
   transition: 0.15s;
 }
 
 .changes-toggle-slider::before {
   position: absolute;
   content: "";
-  height: 12px;
-  width: 12px;
-  left: 3px;
-  bottom: 3px;
+  height: 10px;
+  width: 10px;
+  left: 2px;
+  bottom: 2px;
   background-color: var(--text-muted);
   border-radius: var(--radius-full);
   transition: 0.15s;
@@ -437,7 +437,7 @@ canvas.dragging { cursor: grabbing; }
 
 .changes-toggle input:checked + .changes-toggle-slider::before {
   background-color: #f9e2af;
-  transform: translateX(14px);
+  transform: translateX(12px);
 }
 
 .changes-stats {
@@ -447,8 +447,8 @@ canvas.dragging { cursor: grabbing; }
 .changes-stat-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px var(--space-sm);
+  gap: 6px;
+  padding: 7px var(--space-xs);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.12s;
@@ -464,8 +464,8 @@ canvas.dragging { cursor: grabbing; }
 }
 
 .changes-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
@@ -473,7 +473,7 @@ canvas.dragging { cursor: grabbing; }
 .changes-label {
   flex: 1;
   color: var(--text-secondary);
-  font-size: var(--font-small);
+  font-size: var(--font-micro);
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -481,18 +481,18 @@ canvas.dragging { cursor: grabbing; }
 
 .changes-count {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 10px;
   font-family: var(--font-mono);
   font-weight: 600;
   flex-shrink: 0;
 }
 
 .changes-total {
-  font-size: var(--font-small);
+  font-size: var(--font-micro);
   font-weight: 500;
   color: var(--text-muted);
   text-align: center;
-  padding-top: var(--space-sm);
+  padding-top: var(--space-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
