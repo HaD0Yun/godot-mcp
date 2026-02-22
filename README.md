@@ -143,6 +143,16 @@ Use one of these depending on your client.
 
 ---
 
+## Project Visualizer
+
+Visualize your entire project architecture with `map_project`. Scripts are automatically grouped by folder structure into color-coded categories — no configuration needed.
+
+![Project Visualizer — AI-generated architecture map](assets/visualizer-category-map.png)
+
+> The AI scanned a real Godot project via `map_project` and produced this interactive dependency graph. Categories, colors, and grouping are derived automatically from your folder layout.
+
+---
+
 ## Quick Prompt Examples
 
 ### Build
