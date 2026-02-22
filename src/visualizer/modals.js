@@ -5,13 +5,14 @@
 import {
   nodes, edges, setCurrentView, setSceneData, getFolderColor,
   setExpandedScene, setExpandedSceneHierarchy, setSelectedSceneNode,
-  setHoveredSceneNode, expandedScene
+  setHoveredSceneNode, expandedScene,
+  gitChangeSummary, categoryColorMap
 } from './state.js';
 import { sendCommand } from './websocket.js';
 import { draw, getCanvas, roundRect, getContext, clearPositions, fitToView } from './canvas.js';
 import { initLayout } from './layout.js';
 import { closePanel, closeSceneNodePanel } from './panel.js';
-import { updateStats } from './events.js';
+import { updateStats, buildChangesPanel } from './events.js';
 
 let contextMenu;
 
@@ -100,27 +101,87 @@ window.submitNewScript = async function () {
 
 window.refreshProject = async function () {
   contextMenu.classList.remove('visible');
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (!refreshBtn) return;
+
+  // Prevent double-clicks
+  if (refreshBtn.classList.contains('spinning')) return;
+  refreshBtn.classList.add('spinning');
+
+  const spinStart = Date.now();
+  let success = false;
+
   try {
     const result = await sendCommand('refresh_map', {});
     if (result.ok && result.project_map) {
-      // Update nodes and edges
-      const newNodes = result.project_map.nodes.map((n, i) => ({
-        ...n,
-        x: nodes[i]?.x || 0,
-        y: nodes[i]?.y || 0,
-        color: getFolderColor(n.folder),
-        highlighted: true,
-        visible: true
-      }));
+      // Build old-position lookup by path for stable repositioning
+      const oldPositions = {};
+      nodes.forEach(n => { oldPositions[n.path] = { x: n.x, y: n.y }; });
+
+      // Map new nodes, preserving positions for existing paths
+      const newNodes = result.project_map.nodes.map((n) => {
+        const old = oldPositions[n.path];
+        return {
+          ...n,
+          x: old ? old.x : 0,
+          y: old ? old.y : 0,
+          color: categoryColorMap[n.category] || getFolderColor(n.folder),
+          highlighted: true,
+          visible: true,
+          categoryVisible: true
+        };
+      });
+
       nodes.length = 0;
       nodes.push(...newNodes);
       edges.length = 0;
       edges.push(...result.project_map.edges);
-      initLayout();
+
+      // Recalculate git change summary
+      gitChangeSummary.modified = 0;
+      gitChangeSummary.added = 0;
+      gitChangeSummary.untracked = 0;
+      nodes.forEach(n => {
+        if (n.gitStatus === 'modified') gitChangeSummary.modified++;
+        else if (n.gitStatus === 'added') gitChangeSummary.added++;
+        else if (n.gitStatus === 'untracked') gitChangeSummary.untracked++;
+      });
+
+      // Rebuild changes panel UI
+      buildChangesPanel();
+
+      // Show/hide changes panel based on whether changes exist
+      const totalChanges = gitChangeSummary.modified + gitChangeSummary.added + gitChangeSummary.untracked;
+      const changesPanel = document.getElementById('changes-panel');
+      if (changesPanel) {
+        changesPanel.style.display = totalChanges > 0 ? '' : 'none';
+      }
+
+      // Only run full layout for brand-new nodes (no prior position)
+      const hasNewNodes = newNodes.some(n => n.x === 0 && n.y === 0 && !oldPositions[n.path]);
+      if (hasNewNodes) {
+        initLayout();
+      }
+
+      updateStats();
       draw();
+      success = true;
     }
   } catch (err) {
     console.error('Failed to refresh:', err);
+  } finally {
+    // Ensure spinner is visible for at least 600ms so user sees feedback
+    const elapsed = Date.now() - spinStart;
+    const remaining = Math.max(0, 600 - elapsed);
+
+    setTimeout(() => {
+      refreshBtn.classList.remove('spinning');
+
+      // Flash success (green) or error (red) for 1.5s
+      const feedbackClass = success ? 'refresh-done' : 'refresh-error';
+      refreshBtn.classList.add(feedbackClass);
+      setTimeout(() => refreshBtn.classList.remove(feedbackClass), 1500);
+    }, remaining);
   }
 };
 

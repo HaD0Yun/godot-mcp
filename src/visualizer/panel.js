@@ -213,11 +213,117 @@ export function openPanel(node) {
     html += `</ul></div>`;
   }
 
+  if (node.gitStatus) {
+    const statusLabel = node.gitStatus === 'modified' ? 'Modified' :
+                        node.gitStatus === 'added' ? 'Added' :
+                        node.gitStatus === 'untracked' ? 'Untracked' : node.gitStatus;
+    const statusColor = node.gitStatus === 'modified' ? '#f9e2af' :
+                        node.gitStatus === 'added' ? '#a6e3a1' : '#89b4fa';
+    html += `<div class="section">`;
+    html += `<div class="section-header">Changes <span class="section-count" style="background:${statusColor};color:#1a1a2e">${statusLabel}</span></div>`;
+    html += `<div id="diff-container" class="diff-container"><div class="diff-loading">Loading diff...</div></div>`;
+    html += `</div>`;
+  }
+
   document.getElementById('panel-body').innerHTML = html;
   detailPanel.classList.add('open');
   initSectionResizing();
   initInlineEditing();
+
+  if (node.gitStatus) {
+    fetchAndRenderDiff(node);
+  }
+
   draw();
+}
+
+async function fetchAndRenderDiff(node) {
+  const container = document.getElementById('diff-container');
+  if (!container) return;
+
+  try {
+    const result = await sendCommand('get_file_diff', { path: node.path });
+
+    if (!result || !result.hunks || result.hunks.length === 0) {
+      if (node.gitStatus === 'untracked' || node.gitStatus === 'added') {
+        container.innerHTML = '<div class="diff-info">New file — no previous version to diff against</div>';
+      } else {
+        container.innerHTML = '<div class="diff-info">No changes detected</div>';
+      }
+      return;
+    }
+
+    const grouped = groupHunksByFunction(result.hunks, node);
+    container.innerHTML = renderGroupedDiff(grouped);
+  } catch (err) {
+    console.error('Failed to fetch diff:', err);
+    container.innerHTML = '<div class="diff-error">Could not load diff</div>';
+  }
+}
+
+function groupHunksByFunction(hunks, node) {
+  const functions = node.functions || [];
+  const groups = {};
+
+  for (const hunk of hunks) {
+    let matchedFunc = null;
+    for (const f of functions) {
+      const funcStart = f.line || 0;
+      const funcEnd = funcStart + (f.body_lines || 0);
+      if (hunk.newStart <= funcEnd && (hunk.newStart + hunk.newCount) >= funcStart) {
+        matchedFunc = f.name;
+        break;
+      }
+    }
+
+    const groupKey = matchedFunc ? `${matchedFunc}()` : 'Top-level changes';
+    if (!groups[groupKey]) groups[groupKey] = [];
+    groups[groupKey].push(hunk);
+  }
+
+  const result = [];
+  for (const [label, groupHunks] of Object.entries(groups)) {
+    if (label !== 'Top-level changes') {
+      result.push({ label, hunks: groupHunks });
+    }
+  }
+  if (groups['Top-level changes']) {
+    result.push({ label: 'Top-level changes', hunks: groups['Top-level changes'] });
+  }
+  return result;
+}
+
+function renderGroupedDiff(groups) {
+  let html = '';
+  for (const group of groups) {
+    let additions = 0, deletions = 0;
+    for (const hunk of group.hunks) {
+      for (const line of hunk.lines) {
+        if (line.startsWith('+')) additions++;
+        else if (line.startsWith('-')) deletions++;
+      }
+    }
+
+    html += `<div class="diff-group">`;
+    html += `<div class="diff-group-header">`;
+    html += `<span class="diff-func-name">${esc(group.label)}</span>`;
+    html += `<span class="diff-stats">`;
+    if (additions > 0) html += `<span class="diff-stat-add">+${additions}</span>`;
+    if (deletions > 0) html += `<span class="diff-stat-del">−${deletions}</span>`;
+    html += `</span>`;
+    html += `</div>`;
+
+    for (const hunk of group.hunks) {
+      html += `<div class="diff-hunk">`;
+      for (const line of hunk.lines) {
+        const type = line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : 'ctx';
+        html += `<div class="diff-line diff-${type}">${esc(line)}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+  return html;
 }
 
 export function closePanel() {
@@ -846,13 +952,14 @@ function renderPropertyRow(prop, scenePath, nodePath) {
 
   // Render appropriate control based on type
   switch (type) {
-    case 1: // TYPE_BOOL
+    case 1: { // TYPE_BOOL
       const boolChecked = value === true ? 'checked' : '';
       html += `<label class="toggle-switch">
         <input type="checkbox" ${boolChecked} data-prop="${esc(name)}" data-type="${type}">
         <span class="toggle-slider"></span>
       </label>`;
       break;
+    }
 
     case 2: // TYPE_INT
       if (hint === 2 && hint_string) { // PROPERTY_HINT_ENUM
@@ -904,10 +1011,10 @@ function renderPropertyRow(prop, scenePath, nodePath) {
       }
       break;
 
-    default:
-      // Display value as text for unsupported types
+    default: {
       const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value ?? 'null');
       html += `<span class="property-readonly">${esc(displayValue.substring(0, 50))}${displayValue.length > 50 ? '...' : ''}</span>`;
+    }
   }
 
   html += `</div></div>`;

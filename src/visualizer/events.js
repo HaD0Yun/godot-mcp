@@ -12,7 +12,8 @@ import {
   setSelectedSceneNode, setHoveredSceneNode,
   selectedSceneNode, scenePositions, setScenePosition,
   categories, activeCategories, toggleCategory, setAllCategories,
-  categoryGroupMode, setCategoryGroupMode
+  categoryGroupMode, setCategoryGroupMode,
+  changesVisible, setChangesVisible, gitChangeSummary, changesFilter, setChangesFilter
 } from './state.js';
 import {
   getCanvas, screenToWorld, hitTest, groupBoxHitTest, draw, resize,
@@ -546,6 +547,32 @@ function updateSceneBackButton(show, scenePath = '') {
 window.goBackToSceneOverview = goBackToSceneOverview;
 window.expandSceneFromPanel = expandScene;
 
+export function buildChangesPanel() {
+  const modifiedCountEl = document.getElementById('changes-modified-count');
+  const addedCountEl = document.getElementById('changes-added-count');
+  const untrackedCountEl = document.getElementById('changes-untracked-count');
+  const newCountEl = document.getElementById('changes-new-count');
+  const totalEl = document.getElementById('changes-total');
+  const toggleInput = document.getElementById('changes-toggle-input');
+
+  if (modifiedCountEl) modifiedCountEl.textContent = String(gitChangeSummary.modified);
+  if (addedCountEl) addedCountEl.textContent = String(gitChangeSummary.added);
+  if (untrackedCountEl) untrackedCountEl.textContent = String(gitChangeSummary.untracked);
+  if (newCountEl) newCountEl.textContent = String(gitChangeSummary.new || 0);
+
+  const totalChanges = gitChangeSummary.modified + gitChangeSummary.added + gitChangeSummary.untracked;
+  if (totalEl) totalEl.textContent = `${totalChanges} changed files`;
+
+  if (toggleInput) {
+    toggleInput.checked = changesVisible;
+  }
+
+  const rows = document.querySelectorAll('#changes-stats .changes-stat-row');
+  rows.forEach((row) => {
+    row.classList.toggle('active', row.dataset.type === changesFilter);
+  });
+}
+
 // ---- Category filter functions ----
 export function buildCategoryList() {
   const catList = document.getElementById('cat-list');
@@ -593,6 +620,39 @@ window.toggleAllCategories = function() {
   const allActive = activeCategories.size === categories.length;
   setAllCategories(!allActive);
   buildCategoryList();
+  draw();
+};
+
+window.toggleChangesVisible = function() {
+  const toggleInput = document.getElementById('changes-toggle-input');
+  const checked = !!(toggleInput && toggleInput.checked);
+  setChangesVisible(checked);
+  draw();
+};
+
+window.filterByChangeType = function(type) {
+  const nextFilter = changesFilter === type ? null : type;
+  setChangesFilter(nextFilter);
+
+  const matchingNodes = [];
+  nodes.forEach((node) => {
+    if (!nextFilter) {
+      node.visible = true;
+      node.highlighted = true;
+      return;
+    }
+
+    const matches = type === 'new' ? node.isNew : node.gitStatus === nextFilter;
+    node.visible = matches;
+    node.highlighted = matches;
+    if (matches) matchingNodes.push(node);
+  });
+
+  if (nextFilter && matchingNodes.length > 0) {
+    centerOnNodes(matchingNodes);
+  }
+
+  buildChangesPanel();
   draw();
 };
 
@@ -780,10 +840,10 @@ function startInlineRename(screenX, screenY, node, scenePath) {
     font-size: 12px;
     font-family: -apple-system, system-ui, sans-serif;
     font-weight: 600;
-    background: #242428;
+    background: #0f1014;
     border: 2px solid #7aa2f7;
     border-radius: 4px;
-    color: #e8e4df;
+    color: #f0f0f5;
     z-index: 1000;
     outline: none;
   `;
