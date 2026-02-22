@@ -128,16 +128,20 @@ export function mapProject(
   for (const node of nodes) {
     const fromPath = node.path;
 
-    // extends → class_name resolution
-    if (node.extends && classMap[node.extends]) {
-      edges.push({ from: fromPath, to: classMap[node.extends], type: 'extends' });
+    // extends → class_name resolution OR direct res:// path
+    if (node.extends) {
+      if (node.extends.startsWith('res://')) {
+        // File-based extends: extends "res://scripts/base.gd"
+        edges.push({ from: fromPath, to: node.extends, type: 'extends' });
+      } else if (classMap[node.extends]) {
+        // Class name-based extends: extends MyBaseClass
+        edges.push({ from: fromPath, to: classMap[node.extends], type: 'extends' });
+      }
     }
 
-    // preload/load references
+    // preload/load references (all resource types, not just .gd)
     for (const ref of node.preloads) {
-      if (ref.endsWith('.gd')) {
-        edges.push({ from: fromPath, to: ref, type: 'preload' });
-      }
+      edges.push({ from: fromPath, to: ref, type: 'preload' });
     }
 
     // signal connections
@@ -224,6 +228,7 @@ function parseScript(absolutePath: string, resPath: string): ScriptNode {
   // Regex patterns (JS equivalents of the GDScript RegEx)
   const reDesc = /^##\s*@desc:\s*(.+)/;
   const reExtends = /^extends\s+(\w+)/;
+  const reExtendsPath = /^extends\s+"(res:\/\/[^"]+)"/;
   const reClassName = /^class_name\s+(\w+)/;
   const reVar = /^(@export(?:\([^)]*\))?\s+)?(@onready\s+)?var\s+(\w+)\s*(?::\s*(\w+))?(?:\s*=\s*(.+))?/;
   const reFunc = /^func\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*(\w+))?/;
@@ -249,8 +254,10 @@ function parseScript(absolutePath: string, resPath: string): ScriptNode {
       if (m) { description = m[1]; continue; }
     }
 
-    // extends
+    // extends (class name or file path)
     if (!extendsClass) {
+      const mPath = stripped.match(reExtendsPath);
+      if (mPath) { extendsClass = mPath[1]; continue; }
       const m = stripped.match(reExtends);
       if (m) { extendsClass = m[1]; continue; }
     }
