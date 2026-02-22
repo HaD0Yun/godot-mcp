@@ -457,6 +457,9 @@ class GodotServer {
       try { await this.dapClient.disconnect(); } catch {}
       this.dapClient = null;
     }
+    if (this.godotBridge) {
+      try { await this.godotBridge.stop(); } catch {}
+    }
     await this.server.close();
   }
 
