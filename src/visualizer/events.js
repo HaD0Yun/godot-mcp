@@ -15,7 +15,7 @@ import {
   categoryGroupMode, setCategoryGroupMode
 } from './state.js';
 import {
-  getCanvas, screenToWorld, hitTest, draw, resize,
+  getCanvas, screenToWorld, hitTest, groupBoxHitTest, draw, resize,
   updateZoomIndicator, centerOnNodes, savePositions,
   sceneHitTest, SCENE_CARD_W, SCENE_CARD_H,
   clearPositions, fitToView
@@ -270,6 +270,26 @@ function handleScriptsMouseDown(e, w) {
       moved: false
     });
     canvas.classList.add('dragging');
+  } else if (categoryGroupMode === 'grouped' && e.button === 0) {
+    const box = groupBoxHitTest(w.x, w.y);
+    if (box) {
+      // Collect all nodes belonging to this category
+      const groupNodes = nodes.filter(n => n.category === box.category);
+      setDragging({
+        type: 'group',
+        box: box,
+        groupNodes: groupNodes,
+        offX: box.x - w.x,
+        offY: box.y - w.y,
+        startScreenX: e.clientX,
+        startScreenY: e.clientY,
+        moved: false
+      });
+      canvas.classList.add('dragging');
+    } else {
+      setDragging({ type: 'pan', startX: e.clientX, startY: e.clientY, camX: camera.x, camY: camera.y });
+      canvas.classList.add('dragging');
+    }
   } else {
     setDragging({ type: 'pan', startX: e.clientX, startY: e.clientY, camX: camera.x, camY: camera.y });
     canvas.classList.add('dragging');
@@ -290,6 +310,28 @@ function handleScriptsMouseMove(e) {
       if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
         dragging.moved = true;
       }
+    } else if (dragging.type === 'group') {
+      const w = screenToWorld(e.clientX, e.clientY);
+      const newBoxX = w.x + dragging.offX;
+      const newBoxY = w.y + dragging.offY;
+      const deltaX = newBoxX - dragging.box.x;
+      const deltaY = newBoxY - dragging.box.y;
+
+      // Move the group box
+      dragging.box.x = newBoxX;
+      dragging.box.y = newBoxY;
+
+      // Move all nodes in this category by the same delta
+      for (const n of dragging.groupNodes) {
+        n.x += deltaX;
+        n.y += deltaY;
+      }
+
+      const dx = Math.abs(e.clientX - dragging.startScreenX);
+      const dy = Math.abs(e.clientY - dragging.startScreenY);
+      if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+        dragging.moved = true;
+      }
     } else {
       const dx = (e.clientX - dragging.startX) / camera.zoom;
       const dy = (e.clientY - dragging.startY) / camera.zoom;
@@ -304,6 +346,9 @@ function handleScriptsMouseMove(e) {
     if (hoveredNode !== prev) {
       canvas.style.cursor = hoveredNode ? 'pointer' : 'grab';
       draw();
+    } else if (!hoveredNode && categoryGroupMode === 'grouped') {
+      const box = groupBoxHitTest(w.x, w.y);
+      canvas.style.cursor = box ? 'grab' : 'grab';
     }
   }
 }
@@ -312,11 +357,13 @@ function handleScriptsMouseUp(e) {
   const canvas = getCanvas();
   if (dragging && dragging.type === 'node') {
     if (dragging.moved) {
-      // Node was moved - save positions
       savePositions();
     } else {
-      // Node was clicked - open panel
       openPanel(dragging.node);
+    }
+  } else if (dragging && dragging.type === 'group') {
+    if (dragging.moved) {
+      savePositions();
     }
   }
   canvas.classList.remove('dragging');

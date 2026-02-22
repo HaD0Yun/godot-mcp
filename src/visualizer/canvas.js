@@ -882,6 +882,17 @@ export function hitTest(wx, wy) {
   return null;
 }
 
+export function groupBoxHitTest(wx, wy) {
+  if (!window.__categoryGroupBoxes) return null;
+  for (const box of window.__categoryGroupBoxes) {
+    if (wx >= box.x && wx <= box.x + box.w &&
+        wy >= box.y && wy <= box.y + box.h) {
+      return box;
+    }
+  }
+  return null;
+}
+
 export function centerOnNodes(nodeList) {
   if (!nodeList || nodeList.length === 0) return;
 
