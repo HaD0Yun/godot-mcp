@@ -1,9 +1,8 @@
 import { exec, execSync } from 'node:child_process';
 import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocket, type WebSocketServer } from 'ws';
 import {
   createScriptFile,
   deleteFunction,
@@ -14,24 +13,71 @@ import {
   refreshMap,
   resolvePath,
 } from './gdscript_parser.js';
+import type { GodotBridge } from './godot-bridge.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let vizServer: http.Server | null = null;
 let wss: WebSocketServer | null = null;
 let currentProjectPath: string | null = null;
-const DEFAULT_PORT = 6510;
+let currentBridge: GodotBridge | null = null;
+
+const DEFAULT_VISUALIZER_HTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Godot MCP Visualizer</title>
+  </head>
+  <body>
+    <h1>Godot MCP Visualizer</h1>
+    <p>Run the map_project tool to load visualization data.</p>
+  </body>
+</html>`;
+
+const handleVisualizerConnectionRef = (socket: WebSocket): void => {
+  handleVisualizerConnection(socket);
+};
+
+const onToolStart = (event: { tool: string; id: string; args: Record<string, unknown> }) => {
+  broadcastToVisualizer({
+    type: 'tool_event',
+    event: 'start',
+    ...event,
+  });
+};
+
+const onToolEnd = (event: { tool: string; id: string; success: boolean; duration: number }) => {
+  broadcastToVisualizer({
+    type: 'tool_event',
+    event: 'end',
+    ...event,
+  });
+};
+
+const onGodotConnected = (event: { projectPath?: string }) => {
+  broadcastToVisualizer({
+    type: 'connection_event',
+    event: 'godot_connected',
+    ...event,
+  });
+};
+
+const onGodotDisconnected = () => {
+  broadcastToVisualizer({
+    type: 'connection_event',
+    event: 'godot_disconnected',
+  });
+};
 
 export function setProjectPath(projectPath: string): void {
   currentProjectPath = projectPath;
 }
 
-export async function serveVisualization(projectData: unknown): Promise<string> {
-  if (vizServer) {
-    if (wss) { wss.close(); wss = null; }
-    vizServer.close();
-    vizServer = null;
+export async function serveVisualization(projectData: unknown, bridge: GodotBridge): Promise<string> {
+  if (wss) {
+    wss.off('connection', handleVisualizerConnectionRef);
   }
+  detachBridgeHandlers();
 
   const htmlPath = path.join(__dirname, 'visualizer.html');
   let html: string;
@@ -44,35 +90,37 @@ export async function serveVisualization(projectData: unknown): Promise<string> 
   const dataJson = JSON.stringify(projectData);
   html = html.replace('"%%PROJECT_DATA%%"', dataJson);
 
-  const port = await findPort(DEFAULT_PORT);
+  bridge.setVisualizerHtml(html);
+  currentBridge = bridge;
 
-  return new Promise((resolve, reject) => {
-    vizServer = http.createServer((_req, res) => {
-      res.writeHead(200, {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-cache',
-      });
-      res.end(html);
-    });
+  wss = bridge.getVisualizerWss();
+  if (!wss) {
+    throw new Error('Visualizer WebSocket server is not initialized. Start Godot bridge first.');
+  }
 
-    wss = new WebSocketServer({ server: vizServer });
-    wss.on('connection', handleVisualizerConnection);
+  wss.off('connection', handleVisualizerConnectionRef);
+  wss.on('connection', handleVisualizerConnectionRef);
 
-    vizServer.on('error', (err) => {
-      reject(new Error(`Failed to start visualizer server: ${err.message}`));
-    });
+  bridge.on('tool_start', onToolStart);
+  bridge.on('tool_end', onToolEnd);
+  bridge.on('godot_connected', onGodotConnected);
+  bridge.on('godot_disconnected', onGodotDisconnected);
 
-    vizServer.listen(port, () => {
-      const url = `http://localhost:${port}`;
-      console.error(`[visualizer] Serving at ${url}`);
-      openBrowser(url);
-      resolve(url);
-    });
-  });
+  const url = 'http://localhost:6505';
+  console.error(`[visualizer] Serving at ${url}`);
+  openBrowser(url);
+  return url;
 }
 
 function handleVisualizerConnection(ws: WebSocket): void {
   console.error('[visualizer] Browser connected via WebSocket');
+
+  if (currentBridge) {
+    ws.send(JSON.stringify({
+      type: 'godot_status',
+      status: currentBridge.getStatus(),
+    }));
+  }
 
   ws.on('message', async (data) => {
     try {
@@ -271,23 +319,38 @@ async function handleInternalCommand(message: {
 }
 
 export function stopVisualizationServer(): void {
-  if (wss) { wss.close(); wss = null; }
-  if (vizServer) {
-    vizServer.close();
-    vizServer = null;
-    console.error('[visualizer] Server stopped');
+  if (wss) {
+    wss.off('connection', handleVisualizerConnectionRef);
+    wss = null;
+  }
+  if (currentBridge) {
+    currentBridge.setVisualizerHtml(DEFAULT_VISUALIZER_HTML);
+    detachBridgeHandlers();
+    currentBridge = null;
+    console.error('[visualizer] Server detached from unified bridge');
   }
 }
 
-function findPort(startPort: number): Promise<number> {
-  return new Promise((resolve) => {
-    const server = http.createServer();
-    server.listen(startPort, () => {
-      server.close(() => resolve(startPort));
-    });
-    server.on('error', () => {
-      resolve(findPort(startPort + 1));
-    });
+function detachBridgeHandlers(): void {
+  if (!currentBridge) {
+    return;
+  }
+  currentBridge.off('tool_start', onToolStart);
+  currentBridge.off('tool_end', onToolEnd);
+  currentBridge.off('godot_connected', onGodotConnected);
+  currentBridge.off('godot_disconnected', onGodotDisconnected);
+}
+
+function broadcastToVisualizer(message: Record<string, unknown>): void {
+  if (!wss) {
+    return;
+  }
+
+  const payload = JSON.stringify(message);
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
   });
 }
 
