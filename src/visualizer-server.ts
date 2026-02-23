@@ -71,6 +71,12 @@ const onGodotDisconnected = () => {
 
 export function setProjectPath(projectPath: string): void {
   currentProjectPath = projectPath;
+  const snapshot = readGitSnapshot(projectPath);
+  if (snapshot) {
+    lastGitSnapshotByProject.set(projectPath, snapshot);
+  } else {
+    lastGitSnapshotByProject.delete(projectPath);
+  }
 }
 
 export async function serveVisualization(projectData: unknown, bridge: GodotBridge): Promise<string> {
@@ -208,8 +214,102 @@ interface ActionEntry {
   reason?: string;
 }
 
+type GitStatusKind = 'modified' | 'added' | 'untracked';
+
 const actionLog: ActionEntry[] = [];
 const MAX_ACTION_LOG = 100;
+const lastGitSnapshotByProject = new Map<string, Map<string, GitStatusKind>>();
+
+function appendActionEntry(entry: ActionEntry): void {
+  actionLog.push(entry);
+  if (actionLog.length > MAX_ACTION_LOG) {
+    actionLog.shift();
+  }
+
+  if (!wss) {
+    return;
+  }
+
+  const msg = JSON.stringify({ type: 'action_event', entry });
+  wss.clients.forEach((c) => {
+    if (c.readyState === WebSocket.OPEN) {
+      c.send(msg);
+    }
+  });
+}
+
+function parseGitStatusLine(xy: string): GitStatusKind {
+  if (xy === '??') {
+    return 'untracked';
+  }
+  if (xy.includes('A')) {
+    return 'added';
+  }
+  return 'modified';
+}
+
+function readGitSnapshot(projectPath: string): Map<string, GitStatusKind> | null {
+  const gitDir = path.join(projectPath, '.git');
+  if (!fs.existsSync(gitDir)) {
+    return null;
+  }
+
+  try {
+    const raw = runDiffCommand('git status --porcelain', projectPath);
+    const snapshot = new Map<string, GitStatusKind>();
+
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) {
+        continue;
+      }
+
+      const xy = line.substring(0, 2);
+      const filePath = line.substring(3).trim();
+      const actualPath = filePath.includes(' -> ') ? filePath.split(' -> ')[1] : filePath;
+      const resFilePath = 'res://' + actualPath;
+      snapshot.set(resFilePath, parseGitStatusLine(xy));
+    }
+
+    return snapshot;
+  } catch {
+    return null;
+  }
+}
+
+function recordExternalChanges(projectPath: string): void {
+  const previous = lastGitSnapshotByProject.get(projectPath);
+  const current = readGitSnapshot(projectPath);
+
+  if (!current) {
+    lastGitSnapshotByProject.delete(projectPath);
+    return;
+  }
+
+  if (!previous) {
+    lastGitSnapshotByProject.set(projectPath, current);
+    return;
+  }
+
+  for (const [filePath, status] of current) {
+    const prevStatus = previous.get(filePath);
+    if (prevStatus === status) {
+      continue;
+    }
+
+    appendActionEntry({
+      ts: new Date().toISOString(),
+      command: 'external_change_detected',
+      filePath,
+      details: {
+        path: filePath,
+        status,
+      },
+      reason: 'Detected during refresh',
+    });
+  }
+
+  lastGitSnapshotByProject.set(projectPath, current);
+}
 
 const MUTATION_COMMANDS = new Set([
   'create_script_file',
@@ -220,7 +320,13 @@ const MUTATION_COMMANDS = new Set([
 ]);
 
 const COMMAND_MAP: Record<string, CommandHandler> = {
-  refresh_map: (pp, args) => refreshMap(pp, args) as { ok: boolean; [key: string]: unknown },
+  refresh_map: (pp, args) => {
+    const result = refreshMap(pp, args) as { ok: boolean; [key: string]: unknown };
+    if (result.ok) {
+      recordExternalChanges(pp);
+    }
+    return result;
+  },
   create_script_file: (pp, args) => createScriptFile(pp, args) as { ok: boolean; [key: string]: unknown },
   modify_variable: (pp, args) => modifyVariable(pp, args) as { ok: boolean; [key: string]: unknown },
   modify_signal: (pp, args) => modifySignal(pp, args) as { ok: boolean; [key: string]: unknown },
@@ -288,25 +394,13 @@ async function handleInternalCommand(message: {
     try {
       const result = handler(currentProjectPath, args);
       if (result.ok && MUTATION_COMMANDS.has(command)) {
-        const entry: ActionEntry = {
+        appendActionEntry({
           ts: new Date().toISOString(),
           command,
           filePath: (args.path as string) || '',
           details: { ...args },
           reason: (args.reason as string) || undefined,
-        };
-        actionLog.push(entry);
-        if (actionLog.length > MAX_ACTION_LOG) {
-          actionLog.shift();
-        }
-        if (wss) {
-          const msg = JSON.stringify({ type: 'action_event', entry });
-          wss.clients.forEach((c) => {
-            if (c.readyState === WebSocket.OPEN) {
-              c.send(msg);
-            }
-          });
-        }
+        });
       }
       return result;
     } catch (error) {

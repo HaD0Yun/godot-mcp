@@ -31,6 +31,11 @@ const COMMAND_DISPLAY = {
     const icon = action === 'add' ? '🔗' : action === 'delete' ? '−' : '✏️';
     return `${icon} signal ${args.name || args.old_name || '?'} ${action === 'add' ? '추가' : action === 'delete' ? '삭제' : '수정'}`;
   },
+  external_change_detected: (args) => {
+    const status = args.status || 'modified';
+    const icon = status === 'untracked' ? '🆕' : status === 'added' ? '+' : '✏️';
+    return `${icon} external ${status}`;
+  },
   modify_script: () => '✏️ Script modified',
   create_script: () => '🆕 Script created'
 };

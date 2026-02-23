@@ -239,6 +239,48 @@ export class GodotBridge extends EventEmitter {
   }
 
   private handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    if (req.method === 'POST' && (this.getRequestPathname(req.url) === '/' || this.getRequestPathname(req.url) === '/mcp')) {
+      let body = '';
+      req.on('data', (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      req.on('end', () => {
+        try {
+          const parsed = JSON.parse(body) as { method?: unknown; id?: unknown; params?: { protocolVersion?: unknown } };
+          if (parsed.method === 'initialize') {
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              jsonrpc: '2.0',
+              id: typeof parsed.id === 'number' || typeof parsed.id === 'string' ? parsed.id : 1,
+              result: {
+                protocolVersion: typeof parsed.params?.protocolVersion === 'string' ? parsed.params.protocolVersion : '2025-06-18',
+                capabilities: {},
+                serverInfo: { name: 'godot-mcp', version: '2.0.1' },
+              },
+            }));
+            return;
+          }
+
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'Unsupported method' }));
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
     if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Method not allowed' }));

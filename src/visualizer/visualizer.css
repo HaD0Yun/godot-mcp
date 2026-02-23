@@ -6,11 +6,11 @@
 
 :root {
   /* Void palette */
-  --bg-primary: #08090a;
-  --bg-secondary: #0f1014;
-  --bg-tertiary: #181a20;
-  --bg-hover: #1e2028;
-  --bg-surface: #141618;
+  --bg-primary: #101319;
+  --bg-secondary: #171c24;
+  --bg-tertiary: #202734;
+  --bg-hover: #293243;
+  --bg-surface: #1b212c;
   --border: rgba(255,255,255,0.06);
   --border-light: rgba(255,255,255,0.1);
   --text-primary: #f0f0f5;
@@ -235,8 +235,10 @@ canvas.dragging { cursor: grabbing; }
   top: 80px;
   left: 20px;
   z-index: 50;
-  background: transparent;
-  border: none;
+  background: rgba(16, 19, 25, 0.72);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
   padding: var(--space-md);
   min-width: 110px;
@@ -244,7 +246,7 @@ canvas.dragging { cursor: grabbing; }
   width: 170px;
   max-height: calc(100vh - 130px);
   overflow-y: auto;
-  box-shadow: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   font-size: var(--font-small);
 }
 
@@ -366,14 +368,16 @@ canvas.dragging { cursor: grabbing; }
   top: 80px;
   left: 218px;
   z-index: 50;
-  background: transparent;
-  border: none;
+  background: rgba(16, 19, 25, 0.72);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-md);
   padding: var(--space-sm);
   min-width: 90px;
   max-width: 130px;
   width: 130px;
-  box-shadow: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   font-size: var(--font-micro);
 }
 
@@ -605,9 +609,9 @@ canvas.dragging { cursor: grabbing; }
 #detail-panel {
   position: fixed;
   top: 0;
-  right: -500px;
-  width: 480px;
-  min-width: 340px;
+  right: -440px;
+  width: 420px;
+  min-width: 300px;
   max-width: 80vw;
   height: 100vh;
   background: var(--bg-primary);
@@ -660,13 +664,13 @@ canvas.dragging { cursor: grabbing; }
   position: sticky;
   top: 0;
   background: var(--bg-primary);
-  padding: var(--space-lg) 28px;
+  padding: var(--space-md) 22px;
   z-index: 10;
   border-bottom: 1px solid var(--border);
 }
 
 .panel-header h2 {
-  font-size: var(--font-h1);
+  font-size: 30px;
   font-weight: 800;
   color: var(--accent-light);
   margin-bottom: 6px;
@@ -676,7 +680,7 @@ canvas.dragging { cursor: grabbing; }
 }
 
 .panel-header .path {
-  font-size: var(--font-small);
+  font-size: var(--font-micro);
   color: var(--text-muted);
   font-family: var(--font-mono);
   word-break: break-all;
@@ -684,13 +688,13 @@ canvas.dragging { cursor: grabbing; }
 
 .close-btn {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 14px;
+  right: 14px;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 18px;
@@ -706,7 +710,7 @@ canvas.dragging { cursor: grabbing; }
 }
 
 .panel-body {
-  padding: var(--space-lg) 28px var(--space-xl);
+  padding: var(--space-md) 22px var(--space-lg);
 }
 
 /* Description block */
@@ -732,9 +736,9 @@ canvas.dragging { cursor: grabbing; }
 .meta-badge {
   background: var(--bg-secondary);
   border: none;
-  padding: 8px var(--space-md);
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  font-size: var(--font-small);
+  font-size: var(--font-micro);
   color: var(--text-secondary);
 }
 
@@ -797,7 +801,7 @@ canvas.dragging { cursor: grabbing; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--font-h2);
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
   padding-bottom: var(--space-sm);
@@ -812,7 +816,7 @@ canvas.dragging { cursor: grabbing; }
   color: var(--accent);
   padding: 0;
   border-radius: 0;
-  font-size: 22px;
+  font-size: 16px;
   font-family: var(--font-mono);
   font-weight: 700;
 }
@@ -820,16 +824,41 @@ canvas.dragging { cursor: grabbing; }
 .item-list { list-style: none; }
 
 .item-list li {
-  padding: 8px var(--space-sm);
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   margin-bottom: 2px;
-  font-size: var(--font-body);
+  font-size: 11px;
   font-family: var(--font-mono);
   cursor: default;
   display: flex;
   align-items: center;
-  gap: 8px;
-  line-height: 1.5;
+  gap: 6px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+#exports-list li,
+#vars-list li,
+#signals-list li,
+.section .item-list li.clickable {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+#exports-list li::-webkit-scrollbar,
+#vars-list li::-webkit-scrollbar,
+#signals-list li::-webkit-scrollbar,
+.section .item-list li.clickable::-webkit-scrollbar {
+  height: 4px;
+}
+
+#exports-list li::-webkit-scrollbar-thumb,
+#vars-list li::-webkit-scrollbar-thumb,
+#signals-list li::-webkit-scrollbar-thumb,
+.section .item-list li.clickable::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 2px;
 }
 
 .item-list li:hover { background: var(--bg-secondary); }
@@ -1154,13 +1183,15 @@ canvas.dragging { cursor: grabbing; }
   bottom: 20px;
   right: 20px;
   z-index: 50;
-  background: transparent;
-  border: none;
+  background: rgba(16, 19, 25, 0.72);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
   width: 250px;
   max-width: 250px;
-  max-height: 300px;
-  box-shadow: none;
+  max-height: calc(100vh - 40px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
   font-size: var(--font-body);
   display: flex;
   flex-direction: column;
@@ -1219,7 +1250,7 @@ canvas.dragging { cursor: grabbing; }
 
 .tl-body {
   overflow-y: auto;
-  max-height: 360px;
+  max-height: calc(100vh - 170px);
 }
 
 .tl-body::-webkit-scrollbar { width: 3px; }

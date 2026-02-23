@@ -14,7 +14,6 @@ import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 
-import { createServer, IncomingMessage, ServerResponse } from 'http';
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -36,7 +35,6 @@ import { GodotBridge, getDefaultBridge } from './godot-bridge.js';
 // Check if debug mode is enabled
 const DEBUG_MODE: boolean = process.env.DEBUG === 'true';
 const GODOT_DEBUG_MODE: boolean = true; // Always use GODOT DEBUG MODE
-const HEALTH_PORT: number = parseInt(process.env.MCP_HEALTH_PORT || '8080', 10);
 
 const execAsync = promisify(exec);
 
@@ -8100,90 +8098,11 @@ class GodotServer {
       // Start the Godot Editor Bridge (WebSocket server for editor plugin)
       await this.godotBridge.start();
       console.error('[SERVER] Godot Editor Bridge started on port 6505');
-
-      this.startHealthServer();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[SERVER] Failed to start:', errorMessage);
       process.exit(1);
     }
-  }
-
-  /**
-   * Start a lightweight HTTP server for health checks from Godot editor plugin.
-   * Supports GET /health and POST / (MCP initialize handshake).
-   */
-  private startHealthServer(): void {
-    const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-
-      if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        res.end();
-        return;
-      }
-
-      if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
-        const payload = {
-          status: 'ok',
-          serverName: 'godot-mcp',
-          version: '1.1.0',
-          godotPath: this.godotPath,
-          uptime: process.uptime(),
-          timestamp: new Date().toISOString(),
-        };
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(payload));
-        return;
-      }
-
-      if (req.method === 'POST' && (req.url === '/' || req.url === '/mcp')) {
-        let body = '';
-        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-        req.on('end', () => {
-          try {
-            const parsed = JSON.parse(body);
-            if (parsed.method === 'initialize') {
-              const response = {
-                jsonrpc: '2.0',
-                id: parsed.id ?? 1,
-                result: {
-                  protocolVersion: parsed.params?.protocolVersion || '2025-06-18',
-                  capabilities: {},
-                  serverInfo: { name: 'godot-mcp', version: '1.1.0' },
-                },
-              };
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify(response));
-              return;
-            }
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unsupported method' }));
-          } catch {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Invalid JSON' }));
-          }
-        });
-        return;
-      }
-
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not found' }));
-    });
-
-    httpServer.listen(HEALTH_PORT, () => {
-      console.error(`[SERVER] Health endpoint: http://localhost:${HEALTH_PORT}/health`);
-    });
-
-    httpServer.on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') {
-        console.error(`[SERVER] Port ${HEALTH_PORT} in use — health endpoint disabled`);
-      } else {
-        console.error(`[SERVER] Health endpoint error: ${err.message}`);
-      }
-    });
   }
 
   // ============================================
