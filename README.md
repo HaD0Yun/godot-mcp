@@ -223,18 +223,22 @@ Visualize your entire project architecture with `visualizer.map` (`map_project` 
 | `MCP_TOOL_PROFILE` | Fallback profile env alias | `compact` |
 | `GODOT_PATH` | Explicit Godot executable path | auto-detect |
 | `DEBUG` | Enable server debug logs (`true`/`false`) | `false` |
-| `MCP_HEALTH_PORT` | Health endpoint port | `8080` |
 | `LOG_MODE` | Recording mode: `lite` or `full` | `lite` |
 
 ### Ports
 
 | Port | Service |
 |---|---|
-| `6505` | Unified Godot Bridge + Visualizer server |
+| `6505` | Unified Godot Bridge + Visualizer server (+ `/health`, `/mcp`) |
 | `6005` | Godot LSP |
 | `6006` | Godot DAP |
-| `7777` | Runtime addon command socket |
-| `8080` | Health endpoint (default) |
+| `7777` | Runtime addon command socket (only needed for runtime tools) |
+
+### Minimal port profiles
+
+- **Core editing only**: `6505`
+- **Core + runtime actions (screenshots/input/runtime inspect)**: `6505` + `7777`
+- **Full debugging + diagnostics**: `6505` + `6005` + `6006` + `7777`
 
 ---
 
