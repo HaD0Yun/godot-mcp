@@ -14,92 +14,30 @@
 
 **GoPeak is an MCP server for Godot that lets AI assistants run, inspect, modify, and debug real projects end-to-end.**
 
-> Includes Auto Reload: when MCP edits scenes/scripts, the Godot editor refreshes automatically.
-
 ---
 
-## Why GoPeak (Short Version)
+## Quick Start (3 Minutes)
 
-- **Real project feedback loop**: run the game, read logs, fix issues in-context.
-- **95+ tools** across scene, script, resource, runtime, LSP, DAP, input, and assets.
-- **Deep Godot integration**: ClassDB introspection, runtime inspection, debugger hooks.
-- **Faster iteration**: less copy-paste, more direct implementation/testing.
-
-### Best For
-
-- Solo/indie developers building quickly with AI assistance
-- Teams that want AI to inspect real project state, not just generate snippets
-- Debug-heavy workflows where runtime introspection and breakpoints matter
-
----
-
-## GoPeak vs Upstream (Coding-Solo/godot-mcp)
-
-| Capability | Upstream | GoPeak |
-|---|---|---|
-| GDScript LSP tools | Not available in README tool list | ✅ `lsp_get_diagnostics`, `lsp_get_completions`, `lsp_get_hover`, `lsp_get_symbols` |
-| DAP debugging tools | Not available in README tool list | ✅ breakpoints, step/continue/pause, stack trace, debug output |
-| Input injection tools | Not available in README tool list | ✅ `inject_action`, `inject_key`, `inject_mouse_click`, `inject_mouse_motion` |
-| Screenshot capture tools | Not available in README tool list | ✅ `capture_screenshot`, `capture_viewport` |
-| Auto Reload editor plugin | Not available | ✅ included `auto_reload` addon |
-| Tool coverage scale | Smaller documented scope | ✅ 95+ MCP tools |
-
----
-
-## Requirements
+### Requirements
 
 - Godot 4.x
 - Node.js 18+
 - MCP-compatible client (Claude Desktop, Cursor, Cline, OpenCode, etc.)
 
----
-
-## Installation
-
-### 1) Fastest (recommended)
+### 1) Run GoPeak
 
 ```bash
-npx gopeak
+npx -y gopeak
 ```
 
-or
+or install globally:
 
 ```bash
 npm install -g gopeak
 gopeak
 ```
 
-### 2) Manual (from source)
-
-```bash
-git clone https://github.com/HaD0Yun/godot-mcp.git
-cd godot-mcp
-npm install
-npm run build
-```
-
-Set `GODOT_PATH` if Godot is not auto-detected.
-
-### MCP Client Config (practical examples)
-
-Use one of these depending on your client.
-
-**A) Global install (`npm install -g gopeak`)**
-
-```json
-{
-  "mcpServers": {
-    "godot": {
-      "command": "gopeak",
-      "env": {
-        "GODOT_PATH": "/path/to/godot"
-      }
-    }
-  }
-}
-```
-
-**B) No global install (npx mode)**
+### 2) Add MCP client config
 
 ```json
 {
@@ -108,14 +46,117 @@ Use one of these depending on your client.
       "command": "npx",
       "args": ["-y", "gopeak"],
       "env": {
-        "GODOT_PATH": "/path/to/godot"
+        "GODOT_PATH": "/path/to/godot",
+        "GOPEAK_TOOL_PROFILE": "compact"
       }
     }
   }
 }
 ```
 
-> Tip: If your client uses `args` array style only, use `"command": "npx"` + `"args": ["-y", "gopeak"]`.
+> `GOPEAK_TOOL_PROFILE=compact` is the default. It keeps prompt/tool-list token usage low while preserving access to the full toolset via catalog discovery.
+
+### 3) First prompts to try
+
+- "List Godot projects in `/your/projects` and show project info."
+- "Create `scenes/Player.tscn` with `CharacterBody2D` root and add a movement script."
+- "Run project, get debug output, then fix top error."
+
+---
+
+## Why GoPeak
+
+- **Real project feedback loop**: run the game, inspect logs, and fix in-context.
+- **95+ tools available** across scene/script/resource/runtime/LSP/DAP/input/assets.
+- **Token-efficient by default**: compact tool surface for lower context overhead.
+- **Discoverability built-in**: use `tool.catalog` (alias of `tool_catalog`) to find hidden or legacy tools by keyword.
+- **Deep Godot integration**: ClassDB queries, runtime inspection, debugger hooks, bridge-based scene/resource edits.
+
+### Best For
+
+- Solo/indie developers moving quickly with AI assistance
+- Teams that need AI grounded in actual project/runtime state
+- Debug-heavy workflows (breakpoints, stack traces, live runtime checks)
+
+---
+
+## Tool Surface Model (Important)
+
+GoPeak supports three exposure profiles:
+
+- `compact` (default): exposes a curated alias set (about 20 core tools)
+- `full`: exposes full legacy tool list (95+)
+- `legacy`: same exposed behavior as `full`
+
+Configure with either:
+
+- `GOPEAK_TOOL_PROFILE`
+- `MCP_TOOL_PROFILE` (fallback alias)
+
+### How to discover hidden tools in compact mode
+
+Call:
+
+- `tool.catalog` (compact alias)
+- `tool_catalog` (legacy name)
+
+Example intent:
+
+> "Use `tool.catalog` with query `animation` and show relevant tools."
+
+This lets assistants start with a small, efficient default surface but still find and use the full capability set when needed.
+
+---
+
+## Installation Options
+
+### A) Recommended: npx
+
+```bash
+npx -y gopeak
+```
+
+### B) Global install
+
+```bash
+npm install -g gopeak
+gopeak
+```
+
+### C) From source
+
+```bash
+git clone https://github.com/HaD0Yun/godot-mcp.git
+cd godot-mcp
+npm install
+npm run build
+node build/index.js
+```
+
+GoPeak also exposes two CLI bin names:
+
+- `gopeak`
+- `godot-mcp`
+
+---
+
+## Addons (Recommended)
+
+### Auto Reload + Runtime Addon installer
+
+Install in your Godot project folder:
+
+```bash
+curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.sh | bash
+```
+
+PowerShell:
+
+```powershell
+iwr https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.ps1 -UseBasicParsing | iex
+```
+
+Then enable plugin in **Project Settings → Plugins**.
 
 ---
 
@@ -131,25 +172,24 @@ Use one of these depending on your client.
 - **Input + screenshots**: keyboard/mouse/action injection and viewport capture
 - **Asset library**: search/fetch CC0 assets (Poly Haven, AmbientCG, Kenney)
 
-### Tool Coverage at a Glance
+### Tool families (examples)
 
 | Area | Examples |
 |---|---|
-| Scene/Node | `create_scene`, `add_node`, `set_node_properties` |
-| Script | `create_script`, `modify_script`, `get_script_info` |
-| Runtime | `inspect_runtime_tree`, `call_runtime_method` |
-| LSP/DAP | `lsp_get_diagnostics`, `dap_set_breakpoint` |
+| Project | `project.list`, `project.info`, `editor.run` |
+| Scene/Node | `scene.create`, `scene.node.add`, `set_node_properties` |
+| Script | `script.create`, `script.modify`, `script.info` |
+| Runtime | `runtime.status`, `inspect_runtime_tree`, `call_runtime_method` |
+| LSP/DAP | `lsp.diagnostics`, `lsp_get_hover`, `dap_set_breakpoint`, `dap.output` |
 | Input/Visual | `inject_key`, `inject_mouse_click`, `capture_screenshot` |
 
 ---
 
 ## Project Visualizer
 
-Visualize your entire project architecture with `map_project`. Scripts are automatically grouped by folder structure into color-coded categories — no configuration needed.
+Visualize your entire project architecture with `visualizer.map` (`map_project` legacy). Scripts are grouped by folder structure into color-coded categories.
 
 ![Project Visualizer — AI-generated architecture map](assets/visualizer-category-map.png)
-
-> The AI scanned a real Godot project via `map_project` and produced this interactive dependency graph. Categories, colors, and grouping are derived automatically from your folder layout.
 
 ---
 
@@ -161,27 +201,40 @@ Visualize your entire project architecture with `map_project`. Scripts are autom
 
 ### Debug
 - "Run the project, collect errors, and fix the top 3 issues automatically."
-- "Set a breakpoint at `scripts/player.gd:42`, continue execution, and show the stack trace when hit."
+- "Set a breakpoint at `scripts/player.gd:42`, continue execution, and show stack trace when hit."
 
-### Runtime Testing
+### Runtime testing
 - "Press `ui_accept`, move mouse to (400, 300), click, then capture a screenshot."
-- "Inspect the live scene tree and report nodes with missing scripts or invalid references."
+- "Inspect live scene tree and report nodes with missing scripts or invalid references."
 
-### Refactor / Maintenance
-- "Find all TODO/FIXME comments and group them by file with a priority suggestion."
-- "Analyze project health and list quick wins to improve stability before release."
+### Discovery in compact mode
+- "Use `tool.catalog` with query `tilemap` and list the most relevant tools."
+- "Find import pipeline tools with `tool.catalog` query `import` and run the best one for texture settings."
 
 ---
 
-## Auto Reload Addon (Recommended)
+## Technical Reference
 
-Install in your Godot project folder:
+### Environment variables
 
-```bash
-curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.sh | bash
-```
+| Name | Purpose | Default |
+|---|---|---|
+| `GOPEAK_TOOL_PROFILE` | Tool exposure profile: `compact`, `full`, `legacy` | `compact` |
+| `MCP_TOOL_PROFILE` | Fallback profile env alias | `compact` |
+| `GODOT_PATH` | Explicit Godot executable path | auto-detect |
+| `DEBUG` | Enable server debug logs (`true`/`false`) | `false` |
+| `MCP_HEALTH_PORT` | Health endpoint port | `8080` |
+| `LOG_MODE` | Recording mode: `lite` or `full` | `lite` |
 
-Then enable plugin in **Project Settings → Plugins**.
+### Ports
+
+| Port | Service |
+|---|---|
+| `6505` | Unified Godot Bridge + Visualizer server |
+| `6005` | Godot LSP |
+| `6006` | Godot DAP |
+| `7777` | Runtime addon command socket |
+| `8080` | Health endpoint (default) |
 
 ---
 
@@ -190,7 +243,8 @@ Then enable plugin in **Project Settings → Plugins**.
 - **Godot not found** → set `GODOT_PATH`
 - **No MCP tools visible** → restart your MCP client
 - **Project path invalid** → confirm `project.godot` exists
-- **Runtime tools not working** → install/enable runtime addon
+- **Runtime tools not working** → install/enable runtime addon plugin
+- **Need a tool that is not visible** → run `tool.catalog` and search by capability keyword
 
 ---
 
@@ -210,4 +264,4 @@ MIT — see [LICENSE](LICENSE).
 
 - Original MCP server by [Coding-Solo](https://github.com/Coding-Solo/godot-mcp)
 - GoPeak enhancements by [HaD0Yun](https://github.com/HaD0Yun)
- Project visualizer inspired by [tomyud1/godot-mcp](https://github.com/tomyud1/godot-mcp)
+- Project visualizer inspired by [tomyud1/godot-mcp](https://github.com/tomyud1/godot-mcp)
