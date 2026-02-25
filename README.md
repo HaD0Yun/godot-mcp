@@ -68,7 +68,7 @@ gopeak
 
 - **Real project feedback loop**: run the game, inspect logs, and fix in-context.
 - **95+ tools available** across scene/script/resource/runtime/LSP/DAP/input/assets.
-- **Token-efficient by default**: compact tool surface for lower context overhead.
+- **Token-efficient by default**: compact tool surface + cursor-based pagination. Only ~20 tools per page — no more 95-tool context bombs.
 - **Discoverability built-in**: use `tool.catalog` (alias of `tool_catalog`) to find hidden or legacy tools by keyword.
 - **Deep Godot integration**: ClassDB queries, runtime inspection, debugger hooks, bridge-based scene/resource edits.
 
@@ -105,6 +105,20 @@ Example intent:
 > "Use `tool.catalog` with query `animation` and show relevant tools."
 
 This lets assistants start with a small, efficient default surface but still find and use the full capability set when needed.
+
+### Don't worry about tokens
+
+GoPeak uses **cursor-based pagination** for `tools/list` — even in `full` profile, tools are delivered in pages (default 20) instead of dumping all 95+ definitions at once. Your AI client fetches the next page only when it needs more.
+
+Set page size with `GOPEAK_TOOLS_PAGE_SIZE`:
+
+```json
+{
+  "env": {
+    "GOPEAK_TOOLS_PAGE_SIZE": "25"
+  }
+}
+```
 
 ---
 
@@ -224,6 +238,7 @@ Visualize your entire project architecture with `visualizer.map` (`map_project` 
 | `GODOT_PATH` | Explicit Godot executable path | auto-detect |
 | `DEBUG` | Enable server debug logs (`true`/`false`) | `false` |
 | `LOG_MODE` | Recording mode: `lite` or `full` | `lite` |
+| `GOPEAK_TOOLS_PAGE_SIZE` | Number of tools per `tools/list` page (pagination) | `20` |
 
 ### Ports
 
