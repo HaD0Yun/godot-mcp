@@ -94,6 +94,7 @@ class GodotServer {
   private godotBridge: GodotBridge;
   private cachedToolDefinitions: MCPToolDefinition[] = [];
   private readonly toolExposureProfile: 'compact' | 'full' | 'legacy';
+  private readonly toolsListPageSize: number;
   private readonly compactAliasToLegacy: Record<string, string> = {
     'tool.catalog': 'tool_catalog',
     'project.list': 'list_projects',
@@ -173,6 +174,11 @@ class GodotServer {
     } else {
       this.toolExposureProfile = 'compact';
     }
+
+    const rawToolsPageSize = parseInt(process.env.GOPEAK_TOOLS_PAGE_SIZE || '20', 10);
+    this.toolsListPageSize = Number.isFinite(rawToolsPageSize) && rawToolsPageSize > 0
+      ? rawToolsPageSize
+      : 20;
 
     // Initialize reverse parameter mappings
     for (const [snakeCase, camelCase] of Object.entries(this.parameterMappings)) {
@@ -602,6 +608,34 @@ class GodotServer {
     return this.buildCompactTools(allTools);
   }
 
+  private parseToolsListCursor(cursor: unknown, total: number): number {
+    if (typeof cursor !== 'string' || cursor.length === 0) {
+      return 0;
+    }
+
+    const offset = Number.parseInt(cursor, 10);
+    if (!Number.isInteger(offset) || offset < 0 || offset > total) {
+      throw new McpError(ErrorCode.InvalidParams, `Invalid tools/list cursor: ${cursor}`);
+    }
+
+    return offset;
+  }
+
+  private paginateToolsForList(tools: MCPToolDefinition[], cursor: unknown): { tools: MCPToolDefinition[]; nextCursor?: string } {
+    const start = this.parseToolsListCursor(cursor, tools.length);
+    const end = Math.min(start + this.toolsListPageSize, tools.length);
+    const page = tools.slice(start, end);
+
+    if (end < tools.length) {
+      return {
+        tools: page,
+        nextCursor: String(end),
+      };
+    }
+
+    return { tools: page };
+  }
+
   private async handleToolCatalog(args: any): Promise<{ content: Array<{ type: string; text: string }> }> {
     const normalizedArgs = this.normalizeParameters(args || {});
     const query = typeof normalizedArgs.query === 'string' ? normalizedArgs.query.trim().toLowerCase() : '';
@@ -913,7 +947,7 @@ class GodotServer {
    */
   private setupToolHandlers() {
     // Define available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
       const allTools: MCPToolDefinition[] = [
         {
           name: 'launch_editor',
@@ -3165,9 +3199,8 @@ class GodotServer {
 
       this.cachedToolDefinitions = allTools;
 
-      return {
-        tools: this.getExposedTools(allTools),
-      };
+      const exposedTools = this.getExposedTools(allTools);
+      return this.paginateToolsForList(exposedTools, request.params?.cursor);
     });
 
     // Handle tool calls
