@@ -60,11 +60,28 @@ func _process(_delta: float) -> void:
 				_handle_disconnect()
 
 
-func connect_to_server(url: String = DEFAULT_URL) -> void:
-	server_url = url
+func connect_to_server(url: String = "") -> void:
+	server_url = _resolve_server_url(url)
 	_should_reconnect = true
 	_current_reconnect_delay = RECONNECT_DELAY
 	_attempt_connection()
+
+
+func _resolve_server_url(explicit_url: String) -> String:
+	if explicit_url != "":
+		return explicit_url
+
+	var env_keys := ["GODOT_BRIDGE_PORT", "MCP_BRIDGE_PORT", "GOPEAK_BRIDGE_PORT"]
+	for key in env_keys:
+		var raw := OS.get_environment(key)
+		if raw == "":
+			continue
+		if raw.is_valid_int():
+			var port := int(raw)
+			if port >= 1 and port <= 65535:
+				return "ws://127.0.0.1:%d/godot" % port
+
+	return DEFAULT_URL
 
 
 func disconnect_from_server() -> void:
