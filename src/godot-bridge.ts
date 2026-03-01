@@ -8,6 +8,25 @@ const DEFAULT_PORT = 6505;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const KEEPALIVE_INTERVAL_MS = 10_000;
 const SECOND_CONNECTION_CLOSE_CODE = 4000;
+const BRIDGE_PORT_ENV_KEYS = ['GODOT_BRIDGE_PORT', 'MCP_BRIDGE_PORT', 'GOPEAK_BRIDGE_PORT'] as const;
+
+function resolveDefaultBridgePort(): number {
+  for (const key of BRIDGE_PORT_ENV_KEYS) {
+    const raw = process.env[key];
+    if (!raw || raw.trim().length === 0) {
+      continue;
+    }
+
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535) {
+      return parsed;
+    }
+
+    console.error(`[GodotBridge] Ignoring invalid ${key}="${raw}". Expected an integer between 1 and 65535.`);
+  }
+
+  return DEFAULT_PORT;
+}
 
 export interface ToolInvokeMessage {
   type: 'tool_invoke';
@@ -147,10 +166,11 @@ export class GodotBridge extends EventEmitter {
     });
   }
 
-  public stop(): void {
+  public async stop(): Promise<void> {
     this.stopKeepalive();
     this.rejectAllPending(new Error('GodotBridge stopped'));
     this.resourceQueues.clear();
+    const closeTasks: Array<Promise<void>> = [];
 
     if (this.socket) {
       try {
@@ -161,31 +181,36 @@ export class GodotBridge extends EventEmitter {
     }
 
     if (this.godotWss) {
-      for (const client of this.godotWss.clients) {
+      const godotWss = this.godotWss;
+      for (const client of godotWss.clients) {
         try {
           client.close();
         } catch {
         }
       }
-      this.godotWss.close();
+      closeTasks.push(this.closeWebSocketServer(godotWss));
       this.godotWss = null;
     }
 
     if (this.vizWss) {
-      for (const client of this.vizWss.clients) {
+      const vizWss = this.vizWss;
+      for (const client of vizWss.clients) {
         try {
           client.close();
         } catch {
         }
       }
-      this.vizWss.close();
+      closeTasks.push(this.closeWebSocketServer(vizWss));
       this.vizWss = null;
     }
 
     if (this.httpServer) {
-      this.httpServer.close();
+      const httpServer = this.httpServer;
+      closeTasks.push(this.closeHttpServer(httpServer));
       this.httpServer = null;
     }
+
+    await Promise.all(closeTasks);
 
     this.connectionInfo = null;
     this.visualizerHtml = this.getDefaultVisualizerHtml();
@@ -324,6 +349,46 @@ export class GodotBridge extends EventEmitter {
     } catch {
       return '/';
     }
+  }
+
+  private closeWebSocketServer(server: WebSocketServer): Promise<void> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+      };
+
+      try {
+        server.close(() => {
+          finish();
+        });
+      } catch {
+        finish();
+      }
+    });
+  }
+
+  private closeHttpServer(server: http.Server): Promise<void> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+      };
+
+      try {
+        server.close(() => {
+          finish();
+        });
+      } catch {
+        finish();
+      }
+    });
   }
 
   private handleConnection(nextSocket: WebSocket): void {
@@ -609,7 +674,7 @@ let defaultBridge: GodotBridge | null = null;
 
 export function getDefaultBridge(): GodotBridge {
   if (!defaultBridge) {
-    defaultBridge = new GodotBridge();
+    defaultBridge = new GodotBridge(resolveDefaultBridgePort());
   }
 
   return defaultBridge;

@@ -8,8 +8,13 @@ import { WebSocket } from 'ws';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const MCP_SERVER = './build/index.js';
-const GODOT_WS_URL = 'ws://127.0.0.1:6505/godot';
-const VIZ_WS_URL = 'ws://127.0.0.1:6505/visualizer';
+const bridgePortRaw = process.env.GODOT_BRIDGE_PORT || process.env.MCP_BRIDGE_PORT || process.env.GOPEAK_BRIDGE_PORT;
+const parsedBridgePort = Number.parseInt(bridgePortRaw || '', 10);
+const BRIDGE_PORT = Number.isInteger(parsedBridgePort) && parsedBridgePort >= 1 && parsedBridgePort <= 65535
+  ? parsedBridgePort
+  : 6505;
+const GODOT_WS_URL = `ws://127.0.0.1:${BRIDGE_PORT}/godot`;
+const VIZ_WS_URL = `ws://127.0.0.1:${BRIDGE_PORT}/visualizer`;
 const GODOT_PATH = process.env.GODOT_PATH || '/home/doyun/Apps/godot-4.6-rc2/Godot_v4.6-rc2_linux.x86_64';
 
 let passed = 0;
@@ -46,7 +51,7 @@ async function main() {
   // 1. Start MCP server
   console.log('📦 Starting MCP server...');
   const server = spawn('node', [MCP_SERVER], {
-    env: { ...process.env, GODOT_PATH, DEBUG: 'true' },
+    env: { ...process.env, GODOT_PATH, DEBUG: 'true', GODOT_BRIDGE_PORT: String(BRIDGE_PORT) },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 

@@ -92,6 +92,7 @@ class GodotServer {
   private logFlushTimer: NodeJS.Timeout | null = null;
   private readonly logFlushIntervalMs: number = 1500;
   private godotBridge: GodotBridge;
+  private shutdownInitiated = false;
   private cachedToolDefinitions: MCPToolDefinition[] = [];
   private readonly toolExposureProfile: 'compact' | 'full' | 'legacy';
   private readonly toolsListPageSize: number;
@@ -243,19 +244,7 @@ class GodotServer {
     // Error handling
     this.server.onerror = (error) => console.error('[MCP Error]', error);
 
-    // Cleanup on exit
-    process.on('SIGINT', async () => {
-      await this.cleanup();
-      if (this.lspClient) {
-        try { await this.lspClient.disconnect(); } catch {}
-        this.lspClient = null;
-      }
-      if (this.dapClient) {
-        try { await this.dapClient.disconnect(); } catch {}
-        this.dapClient = null;
-      }
-      process.exit(0);
-    });
+    this.setupShutdownHandlers();
   }
 
   /**
@@ -499,10 +488,60 @@ class GodotServer {
       try { await this.dapClient.disconnect(); } catch {}
       this.dapClient = null;
     }
+    stopVisualizationServer();
     if (this.godotBridge) {
       try { await this.godotBridge.stop(); } catch {}
     }
     await this.server.close();
+  }
+
+  private setupShutdownHandlers(): void {
+    const requestShutdown = (source: string, exitCode?: number): void => {
+      void this.handleShutdown(source, exitCode);
+    };
+
+    process.once('SIGINT', () => requestShutdown('SIGINT', 0));
+    process.once('SIGTERM', () => requestShutdown('SIGTERM', 0));
+    process.once('SIGHUP', () => requestShutdown('SIGHUP', 0));
+    process.once('beforeExit', (code: number) => requestShutdown(`beforeExit:${code}`));
+    process.once('exit', () => this.forceCleanupOnExit());
+  }
+
+  private async handleShutdown(source: string, exitCode?: number): Promise<void> {
+    if (this.shutdownInitiated) {
+      return;
+    }
+
+    this.shutdownInitiated = true;
+    this.logDebug(`Shutting down server via ${source}`);
+
+    try {
+      await this.cleanup();
+    } catch (error) {
+      console.error(`[SERVER] Shutdown cleanup failed (${source}):`, error);
+    } finally {
+      if (typeof exitCode === 'number') {
+        process.exit(exitCode);
+      }
+    }
+  }
+
+  private forceCleanupOnExit(): void {
+    if (this.shutdownInitiated) {
+      return;
+    }
+    this.shutdownInitiated = true;
+
+    if (this.activeProcess) {
+      try {
+        this.activeProcess.process.kill();
+      } catch {}
+      this.activeProcess = null;
+    }
+
+    if (this.godotBridge) {
+      void this.godotBridge.stop().catch(() => {});
+    }
   }
 
   private async handleRuntimeCommand(command: string, args: unknown): Promise<{ content: Array<{ type: string; text: string }> }> {
@@ -3180,7 +3219,7 @@ class GodotServer {
         // Project Visualizer Tool
         {
           name: 'map_project',
-          description: 'Crawl the entire Godot project and build an interactive visual map of all scripts showing their structure (variables, functions, signals), connections (extends, preloads, signal connections), and descriptions. Opens an interactive browser-based visualization at localhost:6505.',
+          description: `Crawl the entire Godot project and build an interactive visual map of all scripts showing their structure (variables, functions, signals), connections (extends, preloads, signal connections), and descriptions. Opens an interactive browser-based visualization at localhost:${this.godotBridge.getStatus().port}.`,
           inputSchema: {
             type: 'object',
             properties: {
@@ -8130,7 +8169,7 @@ class GodotServer {
 
       // Start the Godot Editor Bridge (WebSocket server for editor plugin)
       await this.godotBridge.start();
-      console.error('[SERVER] Godot Editor Bridge started on port 6505');
+      console.error(`[SERVER] Godot Editor Bridge started on port ${this.godotBridge.getStatus().port}`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[SERVER] Failed to start:', errorMessage);

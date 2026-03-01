@@ -112,7 +112,7 @@ export async function serveVisualization(projectData: unknown, bridge: GodotBrid
   bridge.on('godot_connected', onGodotConnected);
   bridge.on('godot_disconnected', onGodotDisconnected);
 
-  const url = 'http://localhost:6505';
+  const url = `http://localhost:${bridge.getStatus().port}`;
   console.error(`[visualizer] Serving at ${url}`);
   openBrowser(url);
   return url;
