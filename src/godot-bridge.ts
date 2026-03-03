@@ -1,14 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { RawData } from 'ws';
 import { WebSocket, WebSocketServer } from 'ws';
 
 const DEFAULT_PORT = 6505;
+const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const KEEPALIVE_INTERVAL_MS = 10_000;
 const SECOND_CONNECTION_CLOSE_CODE = 4000;
 const BRIDGE_PORT_ENV_KEYS = ['GODOT_BRIDGE_PORT', 'MCP_BRIDGE_PORT', 'GOPEAK_BRIDGE_PORT'] as const;
+const BRIDGE_HOST_ENV_KEYS = ['GODOT_BRIDGE_HOST', 'MCP_BRIDGE_HOST', 'GOPEAK_BRIDGE_HOST'] as const;
+const BRIDGE_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
+    return typeof pkg.version === 'string' ? pkg.version : '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 function resolveDefaultBridgePort(): number {
   for (const key of BRIDGE_PORT_ENV_KEYS) {
@@ -26,6 +37,22 @@ function resolveDefaultBridgePort(): number {
   }
 
   return DEFAULT_PORT;
+}
+
+function resolveDefaultBridgeHost(): string {
+  for (const key of BRIDGE_HOST_ENV_KEYS) {
+    const raw = process.env[key];
+    if (!raw) {
+      continue;
+    }
+
+    const host = raw.trim();
+    if (host.length > 0) {
+      return host;
+    }
+  }
+
+  return DEFAULT_HOST;
 }
 
 export interface ToolInvokeMessage {
@@ -82,6 +109,7 @@ interface GodotConnectionInfo {
 }
 
 interface BridgeStatus {
+  host: string;
   port: number;
   connected: boolean;
   projectPath?: string;
@@ -104,6 +132,7 @@ export class GodotBridge extends EventEmitter {
 
   public constructor(
     private readonly port: number = DEFAULT_PORT,
+    private readonly host: string = DEFAULT_HOST,
     private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {
     super();
@@ -140,7 +169,7 @@ export class GodotBridge extends EventEmitter {
         this.httpServer = server;
         this.godotWss = godotWss;
         this.vizWss = vizWss;
-        this.log('info', `Unified HTTP+WS bridge listening on port ${this.port}`);
+        this.log('info', `Unified HTTP+WS bridge listening on ${this.host}:${this.port}`);
         resolve();
       });
 
@@ -162,7 +191,7 @@ export class GodotBridge extends EventEmitter {
         this.log('error', `Visualizer WebSocket server error: ${error.message}`);
       });
 
-      server.listen(this.port);
+      server.listen(this.port, this.host);
     });
   }
 
@@ -223,6 +252,7 @@ export class GodotBridge extends EventEmitter {
 
   public getStatus(): BridgeStatus {
     return {
+      host: this.host,
       port: this.port,
       connected: this.isConnected(),
       projectPath: this.connectionInfo?.projectPath,
@@ -290,7 +320,7 @@ export class GodotBridge extends EventEmitter {
               result: {
                 protocolVersion: typeof parsed.params?.protocolVersion === 'string' ? parsed.params.protocolVersion : '2025-06-18',
                 capabilities: {},
-                serverInfo: { name: 'godot-mcp', version: '2.0.1' },
+                serverInfo: { name: 'gopeak', version: BRIDGE_VERSION },
               },
             }));
             return;
@@ -316,8 +346,8 @@ export class GodotBridge extends EventEmitter {
     if (pathname === '/health') {
       const payload = {
         status: 'ok',
-        serverName: 'godot-mcp',
-        version: '2.0.1',
+        serverName: 'gopeak',
+        version: BRIDGE_VERSION,
         bridge: this.getStatus(),
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
@@ -345,7 +375,7 @@ export class GodotBridge extends EventEmitter {
 
   private getRequestPathname(url: string | undefined): string {
     try {
-      return new URL(url ?? '/', `http://localhost:${this.port}`).pathname;
+      return new URL(url ?? '/', `http://${this.host}:${this.port}`).pathname;
     } catch {
       return '/';
     }
@@ -674,12 +704,12 @@ let defaultBridge: GodotBridge | null = null;
 
 export function getDefaultBridge(): GodotBridge {
   if (!defaultBridge) {
-    defaultBridge = new GodotBridge(resolveDefaultBridgePort());
+    defaultBridge = new GodotBridge(resolveDefaultBridgePort(), resolveDefaultBridgeHost());
   }
 
   return defaultBridge;
 }
 
-export function createBridge(port?: number, timeoutMs?: number): GodotBridge {
-  return new GodotBridge(port, timeoutMs);
+export function createBridge(port?: number, timeoutMs?: number, host?: string): GodotBridge {
+  return new GodotBridge(port, host, timeoutMs);
 }

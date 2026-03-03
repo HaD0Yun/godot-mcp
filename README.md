@@ -156,7 +156,7 @@ GoPeak also exposes two CLI bin names:
 
 ## Addons (Recommended)
 
-### Auto Reload + Runtime Addon installer
+### Auto Reload + Editor Bridge + Runtime Addon installer
 
 Install in your Godot project folder:
 
@@ -170,7 +170,7 @@ PowerShell:
 iwr https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.ps1 -UseBasicParsing | iex
 ```
 
-Then enable plugin in **Project Settings → Plugins**.
+Then enable plugins in **Project Settings → Plugins** (especially `godot_mcp_editor` for bridge-backed scene/resource tools).
 
 ---
 
@@ -240,12 +240,14 @@ Visualize your entire project architecture with `visualizer.map` (`map_project` 
 | `DEBUG` | Enable server debug logs (`true`/`false`) | `false` |
 | `LOG_MODE` | Recording mode: `lite` or `full` | `lite` |
 | `GOPEAK_TOOLS_PAGE_SIZE` | Number of tools per `tools/list` page (pagination) | `20` |
+| `GOPEAK_BRIDGE_PORT` | Port for unified bridge/visualizer server | `6505` |
+| `GOPEAK_BRIDGE_HOST` | Bind host for bridge/visualizer server | `127.0.0.1` |
 
 ### Ports
 
 | Port | Service |
 |---|---|
-| `6505` (default) | Unified Godot Bridge + Visualizer server (+ `/health`, `/mcp`) |
+| `6505` (default) | Unified Godot Bridge + Visualizer server (+ `/health`, `/mcp`) on loopback by default |
 | `6005` | Godot LSP |
 | `6006` | Godot DAP |
 | `7777` | Runtime addon command socket (only needed for runtime tools) |

@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { join, dirname, basename, normalize } from 'path';
 import { existsSync, readdirSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
 import { spawn } from 'child_process';
+import { createConnection as createTcpConnection } from 'node:net';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 
@@ -41,6 +42,14 @@ const execAsync = promisify(exec);
 // Derive __filename and __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const SERVER_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
+    return typeof pkg.version === 'string' ? pkg.version : '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 /**
  * Interface representing a running Godot process
@@ -225,7 +234,7 @@ class GodotServer {
     this.server = new Server(
       {
         name: 'gopeak',
-        version: '2.0.0',
+        version: SERVER_VERSION,
       },
       {
         capabilities: {
@@ -551,7 +560,6 @@ class GodotServer {
     const TIMEOUT_MS = 10000;
 
     return new Promise((resolve) => {
-      const { createConnection: createTcpConnection } = require('node:net') as typeof import('node:net');
       const socket = createTcpConnection({ port: RUNTIME_PORT, host: RUNTIME_HOST }, () => {
         const payload = JSON.stringify({ command, params, id: Date.now() });
         socket.write(payload + '\n');
@@ -3246,8 +3254,9 @@ class GodotServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       this.logDebug(`Handling tool request: ${request.params.name}`);
       const rawArgs = request.params.arguments as Record<string, unknown> | undefined;
-      if (rawArgs?.projectPath && typeof rawArgs.projectPath === 'string') {
-        this.lastProjectPath = rawArgs.projectPath;
+      const normalizedArgs = this.normalizeParameters((rawArgs || {}) as OperationParams);
+      if (typeof normalizedArgs?.projectPath === 'string') {
+        this.lastProjectPath = normalizedArgs.projectPath;
       }
       const resolvedToolName = this.resolveToolAlias(request.params.name);
       switch (resolvedToolName) {
@@ -3597,6 +3606,20 @@ class GodotServer {
     }
 
     try {
+      // Ensure godotPath is set
+      if (!this.godotPath) {
+        await this.detectGodotPath();
+        if (!this.godotPath) {
+          return this.createErrorResponse(
+            'Could not find a valid Godot executable path',
+            [
+              'Ensure Godot is installed correctly',
+              'Set GODOT_PATH environment variable to specify the correct path',
+            ]
+          );
+        }
+      }
+
       // Check if the project directory exists and contains a project.godot file
       const projectFile = join(args.projectPath, 'project.godot');
       if (!existsSync(projectFile)) {
@@ -3990,8 +4013,7 @@ class GodotServer {
       // Extract project name from project.godot file
       let projectName = basename(args.projectPath);
       try {
-        const fs = require('fs');
-        const projectFileContent = fs.readFileSync(projectFile, 'utf8');
+        const projectFileContent = readFileSync(projectFile, 'utf8');
         const configNameMatch = projectFileContent.match(/config\/name="([^"]+)"/);
         if (configNameMatch && configNameMatch[1]) {
           projectName = configNameMatch[1];
@@ -8167,9 +8189,17 @@ class GodotServer {
       await this.server.connect(transport);
       console.error('Godot MCP server running on stdio');
 
-      // Start the Godot Editor Bridge (WebSocket server for editor plugin)
-      await this.godotBridge.start();
-      console.error(`[SERVER] Godot Editor Bridge started on port ${this.godotBridge.getStatus().port}`);
+      // Start the Godot Editor Bridge (WebSocket server for editor plugin).
+      // Bridge startup issues should not take down the stdio MCP server.
+      try {
+        await this.godotBridge.start();
+        const bridgeStatus = this.godotBridge.getStatus();
+        console.error(`[SERVER] Godot Editor Bridge started on ${bridgeStatus.host}:${bridgeStatus.port}`);
+      } catch (bridgeError) {
+        const bridgeMessage = bridgeError instanceof Error ? bridgeError.message : String(bridgeError);
+        console.error(`[SERVER] Warning: Godot Editor Bridge failed to start: ${bridgeMessage}`);
+        console.error('[SERVER] Continuing without bridge-backed editor tools.');
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[SERVER] Failed to start:', errorMessage);

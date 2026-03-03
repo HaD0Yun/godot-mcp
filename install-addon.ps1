@@ -1,5 +1,5 @@
 # Godot MCP Addon Installer
-# Installs Auto Reload and Runtime addons to your Godot project
+# Installs Auto Reload, Editor Bridge, and Runtime addons to your Godot project
 
 param(
     [switch]$AutoReloadOnly,
@@ -129,6 +129,51 @@ function Install-Runtime {
     return $success
 }
 
+function Install-EditorPlugin {
+    Write-Host ""
+    Write-Host "Installing Editor Bridge addon..." -ForegroundColor Yellow
+
+    $addonPath = "addons/godot_mcp_editor"
+
+    if ((Test-Path $addonPath) -and -not $Force) {
+        Write-Host "Editor Bridge addon already exists. Use -Force to overwrite." -ForegroundColor Yellow
+        return $false
+    }
+
+    if (Test-Path $addonPath) {
+        Remove-Item -Recurse -Force $addonPath
+    }
+
+    New-Item -ItemType Directory -Path "$addonPath/tools" -Force | Out-Null
+
+    $files = @(
+        "plugin.cfg",
+        "plugin.gd",
+        "mcp_client.gd",
+        "tool_executor.gd",
+        "tools/animation_tools.gd",
+        "tools/resource_tools.gd",
+        "tools/scene_tools.gd"
+    )
+
+    $success = $true
+    foreach ($file in $files) {
+        $url = "$repoUrl/src/addon/godot_mcp_editor/$file"
+        $dest = "$addonPath/$file"
+
+        Write-Host "  Downloading $file..." -ForegroundColor Gray
+        if (-not (Download-File $url $dest)) {
+            Write-Host "  Failed to download $file" -ForegroundColor Red
+            $success = $false
+        }
+    }
+
+    if ($success) {
+        Write-Host "Editor Bridge addon installed successfully!" -ForegroundColor Green
+    }
+    return $success
+}
+
 # Main installation logic
 if ($AutoReloadOnly) {
     Install-AutoReload
@@ -137,6 +182,7 @@ if ($AutoReloadOnly) {
 } else {
     # Install both by default
     Install-AutoReload
+    Install-EditorPlugin
     Install-Runtime
 }
 
@@ -148,6 +194,6 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Open your project in Godot" -ForegroundColor White
 Write-Host "2. Go to Project > Project Settings > Plugins" -ForegroundColor White
-Write-Host "3. Enable the installed addon(s)" -ForegroundColor White
+Write-Host "3. Enable the installed addon(s), especially godot_mcp_editor for bridge-backed tools" -ForegroundColor White
 Write-Host ""
 Write-Host "For more info: https://github.com/HaD0Yun/godot-mcp" -ForegroundColor Gray

@@ -13,8 +13,9 @@ const parsedBridgePort = Number.parseInt(bridgePortRaw || '', 10);
 const BRIDGE_PORT = Number.isInteger(parsedBridgePort) && parsedBridgePort >= 1 && parsedBridgePort <= 65535
   ? parsedBridgePort
   : 6505;
-const GODOT_WS_URL = `ws://127.0.0.1:${BRIDGE_PORT}/godot`;
-const VIZ_WS_URL = `ws://127.0.0.1:${BRIDGE_PORT}/visualizer`;
+const BRIDGE_HOST = process.env.GOPEAK_BRIDGE_HOST || process.env.GODOT_BRIDGE_HOST || '127.0.0.1';
+const GODOT_WS_URL = `ws://${BRIDGE_HOST}:${BRIDGE_PORT}/godot`;
+const VIZ_WS_URL = `ws://${BRIDGE_HOST}:${BRIDGE_PORT}/visualizer`;
 const GODOT_PATH = process.env.GODOT_PATH || '/home/doyun/Apps/godot-4.6-rc2/Godot_v4.6-rc2_linux.x86_64';
 
 let passed = 0;
@@ -44,6 +45,15 @@ function parseResponses(data) {
   return results;
 }
 
+function chooseTool(toolNames, preferred) {
+  for (const name of preferred) {
+    if (name && toolNames.has(name)) {
+      return name;
+    }
+  }
+  return preferred.find(Boolean);
+}
+
 // --- Main test ---
 async function main() {
   console.log('\n🧪 Godot MCP Bridge Integration Test\n');
@@ -51,7 +61,7 @@ async function main() {
   // 1. Start MCP server
   console.log('📦 Starting MCP server...');
   const server = spawn('node', [MCP_SERVER], {
-    env: { ...process.env, GODOT_PATH, DEBUG: 'true', GODOT_BRIDGE_PORT: String(BRIDGE_PORT) },
+    env: { ...process.env, GODOT_PATH, DEBUG: 'true', GOPEAK_TOOL_PROFILE: 'compact', GOPEAK_BRIDGE_PORT: String(BRIDGE_PORT), GOPEAK_BRIDGE_HOST: BRIDGE_HOST },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -97,39 +107,75 @@ async function main() {
   await delay(500);
 
   // 4. List tools
-  stdout = '';
-  server.stdin.write(rpcMsg('tools/list', {}));
-  await delay(2000);
+  async function listAllTools() {
+    const allTools = [];
+    let cursor;
 
-  const listResponses = parseResponses(stdout);
-  if (listResponses.length > 0 && listResponses[0].result?.tools) {
-    const tools = listResponses[0].result.tools;
-    ok(`tools/list returned ${tools.length} tools`);
+    for (let page = 1; page <= 20; page++) {
+      stdout = '';
+      server.stdin.write(rpcMsg('tools/list', cursor ? { cursor } : {}));
+      await delay(1500);
 
-    // Check for get_editor_status
-    const editorStatus = tools.find(t => t.name === 'get_editor_status');
-    if (editorStatus) {
-      ok('get_editor_status tool registered');
+      const responses = parseResponses(stdout);
+      const result = responses.find(response => response.result?.tools)?.result;
+      if (!result?.tools) {
+        throw new Error(`No valid tools/list response for page ${page}. stdout: ${stdout.substring(0, 500)}`);
+      }
+
+      allTools.push(...result.tools);
+      if (!result.nextCursor) {
+        return allTools;
+      }
+      cursor = result.nextCursor;
+    }
+
+    throw new Error('tools/list pagination did not terminate within 20 pages');
+  }
+
+  let statusToolName = 'get_editor_status';
+  let sceneCreateToolName = 'create_scene';
+  try {
+    const tools = await listAllTools();
+    const toolNames = new Set(tools.map(tool => tool.name));
+    const isCompactProfile = Array.from(toolNames).some(name => name.includes('.'));
+    const hasTool = (...names) => names.filter(Boolean).some(name => toolNames.has(name));
+
+    ok(`tools/list returned ${tools.length} tools across all pages`);
+
+    if (hasTool('get_editor_status', 'editor.status')) {
+      ok('get_editor_status/editor.status tool registered');
     } else {
-      fail('get_editor_status', 'Not found in tool list');
+      fail('get_editor_status/editor.status', 'Not found in tool list');
     }
+    statusToolName = chooseTool(toolNames, ['editor.status', 'get_editor_status']);
+    sceneCreateToolName = chooseTool(toolNames, ['scene.create', 'create_scene']);
 
-    // Check migrated tools exist
-    const migratedNames = ['create_scene', 'add_node', 'list_scene_nodes', 'create_resource', 'create_animation'];
-    for (const name of migratedNames) {
-      const t = tools.find(x => x.name === name);
-      if (t) ok(`Tool '${name}' registered`);
-      else fail(`Tool '${name}'`, 'Not found');
+    const migratedTools = [
+      { legacy: 'create_scene', compact: 'scene.create' },
+      { legacy: 'add_node', compact: 'scene.node.add' },
+      { legacy: 'list_scene_nodes' },
+      { legacy: 'create_resource' },
+      { legacy: 'create_animation' },
+    ];
+
+    for (const { legacy, compact } of migratedTools) {
+      if (hasTool(legacy, compact)) {
+        ok(`Tool '${compact || legacy}' registered`);
+      } else if (isCompactProfile && !compact) {
+        ok(`Tool '${legacy}' omitted by compact profile (expected)`);
+      } else {
+        fail(`Tool '${legacy}'`, 'Not found');
+      }
     }
-  } else {
-    fail('tools/list', 'No valid response. stdout: ' + stdout.substring(0, 500));
+  } catch (error) {
+    fail('tools/list', error.message);
   }
 
   // 5. Call get_editor_status (should show disconnected)
   console.log('\n🔌 Testing get_editor_status (no Godot connected)...');
   stdout = '';
   server.stdin.write(rpcMsg('tools/call', {
-    name: 'get_editor_status',
+    name: statusToolName,
     arguments: {}
   }));
   await delay(1500);
@@ -156,7 +202,7 @@ async function main() {
   console.log('\n🎮 Testing migrated tool without Godot connected...');
   stdout = '';
   server.stdin.write(rpcMsg('tools/call', {
-    name: 'create_scene',
+    name: sceneCreateToolName,
     arguments: { scene_path: 'res://test.tscn', root_type: 'Node2D' }
   }));
   await delay(2000);
@@ -216,7 +262,7 @@ async function main() {
     // Check editor status again (should be connected now)
     stdout = '';
     server.stdin.write(rpcMsg('tools/call', {
-      name: 'get_editor_status',
+      name: statusToolName,
       arguments: {}
     }));
     await delay(1500);
@@ -250,7 +296,7 @@ async function main() {
     // Send create_scene via MCP
     stdout = '';
     server.stdin.write(rpcMsg('tools/call', {
-      name: 'create_scene',
+      name: sceneCreateToolName,
       arguments: { scene_path: 'res://test_bridge.tscn', root_type: 'Node2D' }
     }));
 
@@ -259,7 +305,7 @@ async function main() {
       ok(`Received tool_invoke: tool="${invokeMsg.tool}", id="${invokeMsg.id}"`);
       
       if (invokeMsg.tool === 'create_scene') {
-        ok('Correct tool name routed');
+        ok('Correct tool invocation routed to legacy bridge command');
       } else {
         fail('Tool routing', `Expected "create_scene", got "${invokeMsg.tool}"`);
       }

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Godot MCP Addon Installer for Linux/macOS
-# Installs Auto Reload and Runtime addons to your Godot project
+# Installs Auto Reload, Editor Bridge, and Runtime addons to your Godot project
 #
 # Usage: Run this script in your Godot project folder
 #   curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.sh | bash
@@ -162,12 +162,56 @@ install_runtime() {
     return 1
 }
 
+install_editor_plugin() {
+    echo ""
+    echo -e "${YELLOW}Installing Editor Bridge addon...${NC}"
+
+    local addon_path="addons/godot_mcp_editor"
+
+    if [ -d "$addon_path" ] && [ "$FORCE" = false ]; then
+        echo -e "${YELLOW}Editor Bridge addon already exists. Use --force to overwrite.${NC}"
+        return 1
+    fi
+
+    if [ -d "$addon_path" ]; then
+        rm -rf "$addon_path"
+    fi
+
+    mkdir -p "$addon_path/tools"
+
+    local files=(
+        "plugin.cfg"
+        "plugin.gd"
+        "mcp_client.gd"
+        "tool_executor.gd"
+        "tools/animation_tools.gd"
+        "tools/resource_tools.gd"
+        "tools/scene_tools.gd"
+    )
+    local success=true
+
+    for file in "${files[@]}"; do
+        echo -e "  Downloading $file..."
+        if ! download_file "$REPO_URL/src/addon/godot_mcp_editor/$file" "$addon_path/$file"; then
+            echo -e "  ${RED}Failed to download $file${NC}"
+            success=false
+        fi
+    done
+
+    if [ "$success" = true ]; then
+        echo -e "${GREEN}[✓]${NC} Editor Bridge addon installed successfully!"
+        return 0
+    fi
+    return 1
+}
+
 if [ "$AUTO_RELOAD_ONLY" = true ]; then
     install_auto_reload
 elif [ "$RUNTIME_ONLY" = true ]; then
     install_runtime
 else
     install_auto_reload
+    install_editor_plugin
     install_runtime
 fi
 
@@ -179,6 +223,6 @@ echo ""
 echo -e "${BOLD}Next steps:${NC}"
 echo "  1. Open your project in Godot"
 echo "  2. Go to Project > Project Settings > Plugins"
-echo "  3. Enable the installed addon(s)"
+echo "  3. Enable the installed addon(s), including ${BOLD}godot_mcp_editor${NC} for bridge-backed tools"
 echo ""
 echo "For more info: https://github.com/HaD0Yun/godot-mcp"
