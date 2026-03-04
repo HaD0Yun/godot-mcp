@@ -115,19 +115,30 @@ class GodotServer {
     'project.list': 'list_projects',
     'project.info': 'get_project_info',
     'project.search': 'search_project',
+    'project.setting.get': 'get_project_setting',
+    'project.setting.set': 'set_project_setting',
     'editor.launch': 'launch_editor',
     'editor.run': 'run_project',
     'editor.stop': 'stop_project',
     'editor.debug_output': 'get_debug_output',
     'editor.status': 'get_editor_status',
+    'editor.version': 'get_godot_version',
     'scene.create': 'create_scene',
-    'scene.node.add': 'add_node',
     'scene.save': 'save_scene',
+    'scene.nodes': 'list_scene_nodes',
+    'scene.node.add': 'add_node',
+    'scene.node.properties': 'get_node_properties',
+    'scene.node.set': 'set_node_properties',
+    'scene.node.delete': 'delete_node',
     'script.create': 'create_script',
     'script.modify': 'modify_script',
     'script.info': 'get_script_info',
     'class.query': 'query_classes',
     'class.info': 'query_class_info',
+    'signal.connect': 'connect_signal',
+    'resource.dependencies': 'get_dependencies',
+    'export.presets': 'list_export_presets',
+    'export.run': 'export_project',
     'runtime.status': 'get_runtime_status',
     'visualizer.map': 'map_project',
     'lsp.diagnostics': 'lsp_get_diagnostics',
@@ -191,10 +202,10 @@ class GodotServer {
       this.toolExposureProfile = 'compact';
     }
 
-    const rawToolsPageSize = parseInt(process.env.GOPEAK_TOOLS_PAGE_SIZE || '20', 10);
+    const rawToolsPageSize = parseInt(process.env.GOPEAK_TOOLS_PAGE_SIZE || '32', 10);
     this.toolsListPageSize = Number.isFinite(rawToolsPageSize) && rawToolsPageSize > 0
       ? rawToolsPageSize
-      : 20;
+      : 32;
 
     // Initialize reverse parameter mappings
     for (const [snakeCase, camelCase] of Object.entries(this.parameterMappings)) {
