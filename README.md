@@ -54,7 +54,7 @@ gopeak
 }
 ```
 
-> `GOPEAK_TOOL_PROFILE=compact` is the default. It keeps prompt/tool-list token usage low while preserving access to the full toolset via catalog discovery.
+> `GOPEAK_TOOL_PROFILE=compact` is the default. It exposes 33 core tools with 22 dynamic tool groups (78 additional tools) that activate on demand — keeping token usage low while preserving full capability.
 
 ### 3) First prompts to try
 
@@ -67,9 +67,9 @@ gopeak
 ## Why GoPeak
 
 - **Real project feedback loop**: run the game, inspect logs, and fix in-context.
-- **95+ tools available** across scene/script/resource/runtime/LSP/DAP/input/assets.
-- **Token-efficient by default**: compact tool surface + cursor-based pagination. Only ~20 tools per page — no more 95-tool context bombs.
-- **Discoverability built-in**: use `tool.catalog` (alias of `tool_catalog`) to find hidden or legacy tools by keyword.
+- **110+ tools available** across scene/script/resource/runtime/LSP/DAP/input/assets.
+- **Token-efficient by default**: compact tool surface (33 tools) + dynamic tool groups. Only activate what you need — no more 110-tool context bombs.
+- **Dynamic tool groups**: search with `tool.catalog` and matching groups auto-activate. Or manually activate with `tool.groups`.
 - **Deep Godot integration**: ClassDB queries, runtime inspection, debugger hooks, bridge-based scene/resource edits.
 
 ### Best For
@@ -84,8 +84,8 @@ gopeak
 
 GoPeak supports three exposure profiles:
 
-- `compact` (default): exposes a curated alias set (about 20 core tools)
-- `full`: exposes full legacy tool list (95+)
+- `compact` (default): 33 core tools + **22 dynamic tool groups** (78 additional tools activated on demand)
+- `full`: exposes full legacy tool list (110+)
 - `legacy`: same exposed behavior as `full`
 
 Configure with either:
@@ -93,22 +93,51 @@ Configure with either:
 - `GOPEAK_TOOL_PROFILE`
 - `MCP_TOOL_PROFILE` (fallback alias)
 
-### How to discover hidden tools in compact mode
+### Dynamic Tool Groups (compact mode)
 
-Call:
+In `compact` mode, 78 additional tools are organized into **22 groups** that activate automatically when needed:
 
-- `tool.catalog` (compact alias)
-- `tool_catalog` (legacy name)
+| Group | Tools | Description |
+|---|---|---|
+| `scene_advanced` | 3 | Duplicate, reparent nodes, load sprites |
+| `uid` | 2 | UID management for resources |
+| `import_export` | 5 | Import pipeline, reimport, validate project |
+| `autoload` | 4 | Autoload singletons, main scene |
+| `signal` | 2 | Disconnect signals, list connections |
+| `runtime` | 4 | Live scene inspection, runtime properties, metrics |
+| `resource` | 4 | Create/modify materials, shaders, resources |
+| `animation` | 5 | Animations, tracks, animation tree, state machine |
+| `plugin` | 3 | Enable/disable/list editor plugins |
+| `input` | 1 | Input action mapping |
+| `tilemap` | 2 | TileSet and TileMap cell painting |
+| `audio` | 4 | Audio buses, effects, volume |
+| `navigation` | 2 | Navigation regions and agents |
+| `theme_ui` | 3 | Theme colors, font sizes, shaders |
+| `asset_store` | 3 | Search/download CC0 assets |
+| `testing` | 6 | Screenshots, viewport capture, input injection |
+| `dx_tools` | 4 | Error log, project health, find usages, scaffold |
+| `intent_tracking` | 9 | Intent capture, decision logs, handoff briefs |
+| `class_advanced` | 1 | Class inheritance inspection |
+| `lsp` | 3 | GDScript completions, hover, symbols |
+| `dap` | 6 | Breakpoints, stepping, stack traces |
+| `version_gate` | 2 | Version validation, patch verification |
 
-Example intent:
+**How it works:**
 
-> "Use `tool.catalog` with query `animation` and show relevant tools."
+1. **Auto-activation via catalog**: Search with `tool.catalog` and matching groups activate automatically.
+   > "Use `tool.catalog` with query `animation` and show relevant tools."
 
-This lets assistants start with a small, efficient default surface but still find and use the full capability set when needed.
+2. **Manual activation**: Directly activate a group with `tool.groups`.
+   > "Use `tool.groups` to activate the `dap` group for debugging."
+
+3. **Deactivation**: Remove groups when done to reduce context.
+   > "Use `tool.groups` to reset all active groups."
+
+The server sends `notifications/tools/list_changed` so MCP clients (Claude Code, Claude Desktop) automatically refresh the tool list.
 
 ### Don't worry about tokens
 
-GoPeak uses **cursor-based pagination** for `tools/list` — even in `full` profile, tools are delivered in pages (default 20) instead of dumping all 95+ definitions at once. Your AI client fetches the next page only when it needs more.
+GoPeak uses **cursor-based pagination** for `tools/list` — even in `full` profile, tools are delivered in pages (default 33) instead of dumping all 110+ definitions at once. Your AI client fetches the next page only when it needs more.
 
 Set page size with `GOPEAK_TOOLS_PAGE_SIZE`:
 
@@ -250,9 +279,11 @@ Visualize your entire project architecture with `visualizer.map` (`map_project` 
 - "Press `ui_accept`, move mouse to (400, 300), click, then capture a screenshot."
 - "Inspect live scene tree and report nodes with missing scripts or invalid references."
 
-### Discovery in compact mode
+### Discovery & dynamic groups
 - "Use `tool.catalog` with query `tilemap` and list the most relevant tools."
+- "Activate the `dap` tool group for breakpoint debugging with `tool.groups`."
 - "Find import pipeline tools with `tool.catalog` query `import` and run the best one for texture settings."
+- "Reset all active tool groups with `tool.groups` to reduce context."
 
 ---
 
@@ -268,7 +299,7 @@ Visualize your entire project architecture with `visualizer.map` (`map_project` 
 | `GODOT_BRIDGE_PORT` | Bridge/Visualizer HTTP+WS port override (aliases: `MCP_BRIDGE_PORT`, `GOPEAK_BRIDGE_PORT`) | `6505` |
 | `DEBUG` | Enable server debug logs (`true`/`false`) | `false` |
 | `LOG_MODE` | Recording mode: `lite` or `full` | `lite` |
-| `GOPEAK_TOOLS_PAGE_SIZE` | Number of tools per `tools/list` page (pagination) | `20` |
+| `GOPEAK_TOOLS_PAGE_SIZE` | Number of tools per `tools/list` page (pagination) | `33` |
 | `GOPEAK_BRIDGE_PORT` | Port for unified bridge/visualizer server | `6505` |
 | `GOPEAK_BRIDGE_HOST` | Bind host for bridge/visualizer server | `127.0.0.1` |
 
@@ -295,7 +326,7 @@ Visualize your entire project architecture with `visualizer.map` (`map_project` 
 - **No MCP tools visible** → restart your MCP client
 - **Project path invalid** → confirm `project.godot` exists
 - **Runtime tools not working** → install/enable runtime addon plugin
-- **Need a tool that is not visible** → run `tool.catalog` and search by capability keyword
+- **Need a tool that is not visible** → run `tool.catalog` to search and auto-activate matching groups, or use `tool.groups` to activate a specific group
 
 ---
 
