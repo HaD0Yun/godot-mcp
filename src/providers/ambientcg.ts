@@ -10,6 +10,7 @@ import {
   SearchOptions,
   DownloadOptions,
 } from './types.js';
+import { providerLog } from './logging.js';
 
 const AMBIENTCG_CONFIG: ProviderConfig = {
   name: 'ambientcg',
@@ -148,7 +149,7 @@ export class AmbientCGProvider implements IAssetProvider {
         };
       });
     } catch (error) {
-      console.error(`[AmbientCG] Search failed: ${error}`);
+      providerLog('error', this.config.name, 'Search failed', error);
       return [];
     }
   }
@@ -207,6 +208,7 @@ export class AmbientCGProvider implements IAssetProvider {
         sourceUrl: `https://ambientcg.com/view?id=${assetId}`,
       };
     } catch (error: any) {
+      providerLog('error', this.config.name, 'Download failed', error);
       return {
         success: false,
         assetId,

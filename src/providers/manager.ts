@@ -10,6 +10,7 @@ import {
 import { PolyHavenProvider } from './polyhaven.js';
 import { AmbientCGProvider } from './ambientcg.js';
 import { KenneyProvider } from './kenney.js';
+import { providerLog } from './logging.js';
 
 export class AssetManager {
   private providers: Map<string, IAssetProvider> = new Map();
@@ -59,7 +60,7 @@ export class AssetManager {
         const results = await provider.search(options);
         allResults.push(...results);
       } catch (error) {
-        console.error(`[AssetManager] Search failed for ${provider.config.name}: ${error}`);
+        providerLog('error', 'asset-manager', `Search failed for ${provider.config.name}`, error);
       }
     }
 
@@ -87,7 +88,7 @@ export class AssetManager {
           return results;
         }
       } catch (error) {
-        console.error(`[AssetManager] Search failed for ${provider.config.name}: ${error}`);
+        providerLog('error', 'asset-manager', `Search failed for ${provider.config.name}`, error);
       }
     }
 
@@ -129,7 +130,7 @@ export class AssetManager {
           return result;
         }
       } catch (error) {
-        console.error(`[AssetManager] Download failed for ${provider.config.name}: ${error}`);
+        providerLog('error', 'asset-manager', `Download failed for ${provider.config.name}`, error);
       }
     }
 

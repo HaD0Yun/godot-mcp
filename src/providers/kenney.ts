@@ -10,6 +10,7 @@ import {
   SearchOptions,
   DownloadOptions,
 } from './types.js';
+import { providerLog } from './logging.js';
 
 const KENNEY_CONFIG: ProviderConfig = {
   name: 'kenney',
@@ -135,6 +136,7 @@ export class KenneyProvider implements IAssetProvider {
     const pack = KENNEY_ASSET_PACKS.find(p => p.id === assetId);
     
     if (!pack) {
+      providerLog('warn', this.config.name, `Asset pack not found: ${assetId}`);
       return {
         success: false,
         assetId,
@@ -178,6 +180,7 @@ export class KenneyProvider implements IAssetProvider {
         sourceUrl: `https://kenney.nl/assets/${assetId}`,
       };
     } catch (error: any) {
+      providerLog('error', this.config.name, 'Download failed', error);
       return {
         success: false,
         assetId,

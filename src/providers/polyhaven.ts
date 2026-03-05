@@ -10,6 +10,7 @@ import {
   SearchOptions,
   DownloadOptions,
 } from './types.js';
+import { providerLog } from './logging.js';
 
 const POLYHAVEN_CONFIG: ProviderConfig = {
   name: 'polyhaven',
@@ -135,7 +136,7 @@ export class PolyHavenProvider implements IAssetProvider {
         .sort((a, b) => b.score - a.score)
         .slice(0, maxResults);
     } catch (error) {
-      console.error(`[PolyHaven] Search failed: ${error}`);
+      providerLog('error', this.config.name, 'Search failed', error);
       return [];
     }
   }
@@ -209,6 +210,7 @@ export class PolyHavenProvider implements IAssetProvider {
         sourceUrl: `https://polyhaven.com/a/${assetId}`,
       };
     } catch (error: any) {
+      providerLog('error', this.config.name, 'Download failed', error);
       return {
         success: false,
         assetId,
