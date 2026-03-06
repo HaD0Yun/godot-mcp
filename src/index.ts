@@ -7515,31 +7515,63 @@ class GodotServer {
     }
 
     try {
-      // Runtime connection requires a running Godot instance with the addon
-      // For now, return status based on active process
-      if (this.activeProcess) {
+      const runtime = await this.handleRuntimeCommand('ping', {});
+      const runtimeText = runtime?.content?.[0]?.text || '';
+
+      let runtimePayload: any = null;
+      try {
+        runtimePayload = JSON.parse(runtimeText);
+      } catch {
+        runtimePayload = null;
+      }
+
+      const runtimeConnected = runtimePayload?.type === 'pong';
+
+      if (runtimeConnected) {
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
               connected: true,
               status: 'running',
-              note: 'A Godot process is active. Use inspect_runtime_tree to explore.',
+              processActive: Boolean(this.activeProcess),
+              runtimeAddon: 'connected',
+              note: 'Godot runtime addon responded to ping. Use inspect_runtime_tree to explore.',
+              runtimeResponse: runtimePayload,
             }, null, 2),
           }],
         };
-      } else {
+      }
+
+      if (this.activeProcess) {
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
               connected: false,
-              status: 'not_running',
-              note: 'No active Godot process. Use run_project to start one.',
+              status: 'process_running_runtime_disconnected',
+              processActive: true,
+              runtimeAddon: 'unreachable',
+              note: 'A Godot process is active, but the runtime addon did not respond on port 7777.',
+              runtimeResponse: runtimeText,
             }, null, 2),
           }],
         };
       }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            connected: false,
+            status: 'not_running',
+            processActive: false,
+            runtimeAddon: 'unreachable',
+            note: 'No active Godot process or runtime addon detected. Use run_project to start one.',
+            runtimeResponse: runtimeText,
+          }, null, 2),
+        }],
+      };
     } catch (error: any) {
       return this.createErrorResponse(
         `Failed to get runtime status: ${error?.message || 'Unknown error'}`,

@@ -16,6 +16,7 @@ const BRIDGE_PORT = Number.isInteger(parsedBridgePort) && parsedBridgePort >= 1 
   : null;
 const BRIDGE_HOST = process.env.GOPEAK_BRIDGE_HOST || process.env.GODOT_BRIDGE_HOST || '127.0.0.1';
 const GODOT_PATH = process.env.GODOT_PATH || '/home/doyun/Apps/godot-4.6-rc2/Godot_v4.6-rc2_linux.x86_64';
+const RUNTIME_PORT = 7777;
 
 let passed = 0;
 let failed = 0;
@@ -278,6 +279,7 @@ async function main() {
   }
 
   let statusToolName = 'get_editor_status';
+  let runtimeStatusToolName = 'get_runtime_status';
   let sceneCreateToolName = 'create_scene';
   try {
     const tools = await listAllTools();
@@ -293,6 +295,7 @@ async function main() {
       fail('get_editor_status/editor.status', 'Not found in tool list');
     }
     statusToolName = chooseTool(toolNames, ['editor.status', 'get_editor_status']);
+    runtimeStatusToolName = chooseTool(toolNames, ['runtime.status', 'get_runtime_status']);
     sceneCreateToolName = chooseTool(toolNames, ['scene.create', 'create_scene']);
 
     const migratedTools = [
@@ -315,6 +318,70 @@ async function main() {
   } catch (error) {
     fail('tools/list', error.message);
   }
+
+  // 5.5 Runtime status should reflect addon ping, not only process state
+  console.log('\n🧭 Testing runtime status...');
+  stdout = '';
+  server.stdin.write(rpcMsg('tools/call', {
+    name: runtimeStatusToolName,
+    arguments: { projectPath: '/home/doyun/gopeak-smoke-test' }
+  }));
+  await delay(1500);
+
+  const runtimeStatusResponses = parseResponses(stdout);
+  const runtimeStatusPayload = parseTextContent(runtimeStatusResponses.find(response => response.result?.content));
+  if (runtimeStatusPayload?.connected === false && runtimeStatusPayload?.status === 'not_running') {
+    ok('get_runtime_status reports not_running without runtime addon');
+  } else {
+    fail('get_runtime_status initial state', JSON.stringify(runtimeStatusResponses[0] || null));
+  }
+
+  const runtimeServer = createServer((socket) => {
+    socket.setEncoding('utf8');
+    let buffer = '';
+    socket.on('data', (chunk) => {
+      buffer += chunk;
+      if (!buffer.includes('\n')) {
+        return;
+      }
+
+      const line = buffer.split('\n')[0].trim();
+      if (!line) {
+        socket.end();
+        return;
+      }
+
+      try {
+        const request = JSON.parse(line);
+        socket.write(`${JSON.stringify({ type: 'pong', id: request.id, timestamp: Date.now() })}\n`);
+      } catch {
+        socket.write(`${JSON.stringify({ error: 'invalid_json' })}\n`);
+      }
+      socket.end();
+    });
+  });
+
+  await new Promise((resolve, reject) => {
+    runtimeServer.once('error', reject);
+    runtimeServer.listen(RUNTIME_PORT, '127.0.0.1', resolve);
+  });
+
+  stdout = '';
+  server.stdin.write(rpcMsg('tools/call', {
+    name: runtimeStatusToolName,
+    arguments: { projectPath: '/home/doyun/gopeak-smoke-test' }
+  }));
+  await delay(1500);
+
+  const runtimeConnectedResponses = parseResponses(stdout);
+  const runtimeConnectedPayload = parseTextContent(runtimeConnectedResponses.find(response => response.result?.content));
+  if (runtimeConnectedPayload?.connected === true && runtimeConnectedPayload?.runtimeAddon === 'connected') {
+    ok('get_runtime_status reports connected when runtime addon responds to ping');
+  } else {
+    fail('get_runtime_status connected state', JSON.stringify(runtimeConnectedResponses[0] || null));
+  }
+
+  await new Promise((resolve, reject) => runtimeServer.close((error) => error ? reject(error) : resolve()));
 
   // 6. Call get_editor_status (should show disconnected)
   console.log('\n🔌 Testing get_editor_status (no Godot connected)...');
