@@ -11,6 +11,18 @@ let passCount = 0;
 let failCount = 0;
 let nextId = 1;
 
+const OPENAI_COMPATIBLE_TOOL_NAME_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
+
+function sanitizeToolName(name) {
+  return name
+    .normalize('NFKD')
+    .replace(/[^\x00-\x7F]/g, '')
+    .replace(/[^a-zA-Z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 128) || 'tool';
+}
+
 function pass(message) {
   passCount += 1;
   console.log(`PASS: ${message}`);
@@ -207,6 +219,9 @@ async function main() {
 
     const initialTools = await listAllTools(client);
     const initialToolNames = new Set(initialTools.map((tool) => tool.name));
+    const invalidInitialToolNames = initialTools
+      .map((tool) => tool.name)
+      .filter((name) => !OPENAI_COMPATIBLE_TOOL_NAME_PATTERN.test(name));
 
     assert(
       initialTools.length === 33,
@@ -214,12 +229,17 @@ async function main() {
       `Expected 33 initial tools, got ${initialTools.length}`,
     );
     assert(
-      initialToolNames.has('tool.groups'),
-      'Compact alias tool.groups is available',
-      'Compact alias tool.groups is missing',
+      invalidInitialToolNames.length === 0,
+      'Initial tools/list names are OpenAI-compatible',
+      `Invalid tool names in initial tools/list response: ${invalidInitialToolNames.join(', ')}`,
     );
     assert(
-      !initialToolNames.has('create_animation'),
+      initialToolNames.has(sanitizeToolName('tool.groups')),
+      'Sanitized compact alias for tool.groups is available',
+      'Sanitized compact alias for tool.groups is missing',
+    );
+    assert(
+      !initialToolNames.has(sanitizeToolName('create_animation')),
       'Animation legacy tool is hidden by default',
       'Animation legacy tool should not be exposed before activation',
     );
@@ -252,9 +272,9 @@ async function main() {
     ];
 
     assert(
-      animationGroupTools.every((name) => postActivationNames.has(name)),
+      animationGroupTools.every((name) => postActivationNames.has(sanitizeToolName(name))),
       'After activation, exposed tools include animation group tools',
-      `Missing animation tools after activation: ${animationGroupTools.filter((name) => !postActivationNames.has(name)).join(', ')}`,
+      `Missing animation tools after activation: ${animationGroupTools.filter((name) => !postActivationNames.has(sanitizeToolName(name))).join(', ')}`,
     );
 
     const statusResponse = await client.send('tools/call', {
@@ -291,9 +311,9 @@ async function main() {
       `Expected 33 tools after reset, got ${afterResetTools.length}`,
     );
     assert(
-      animationGroupTools.every((name) => !afterResetNames.has(name)),
+      animationGroupTools.every((name) => !afterResetNames.has(sanitizeToolName(name))),
       'After reset, animation group tools are no longer exposed',
-      `Animation tools still exposed after reset: ${animationGroupTools.filter((name) => afterResetNames.has(name)).join(', ')}`,
+      `Animation tools still exposed after reset: ${animationGroupTools.filter((name) => afterResetNames.has(sanitizeToolName(name))).join(', ')}`,
     );
 
     console.log(`\nSummary: ${passCount} passed, ${failCount} failed`);

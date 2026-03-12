@@ -5,6 +5,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import process from 'node:process';
 import { WebSocket } from 'ws';
 
+const OPENAI_COMPATIBLE_TOOL_NAME_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
+
 function parseResponses(data) {
   return data
     .split('\n')
@@ -149,6 +151,12 @@ async function main() {
     const tools = parseResponses(stdout).find((message) => message?.id === TOOLS_LIST_ID && Array.isArray(message?.result?.tools));
     if (!tools || tools.result.tools.length === 0) {
       throw new Error('missing tools/list response');
+    }
+    const invalidToolNames = tools.result.tools
+      .map((tool) => tool?.name)
+      .filter((name) => typeof name !== 'string' || !OPENAI_COMPATIBLE_TOOL_NAME_PATTERN.test(name));
+    if (invalidToolNames.length > 0) {
+      throw new Error(`tools/list exposed invalid OpenAI-compatible tool names: ${invalidToolNames.join(', ')}`);
     }
 
     await connectWebSocket(`ws://${host}:${port}/visualizer`);

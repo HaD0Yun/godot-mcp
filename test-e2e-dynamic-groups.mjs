@@ -24,6 +24,16 @@ let passed = 0;
 let failed = 0;
 let serverProcess = null;
 
+function sanitizeToolName(name) {
+  return name
+    .normalize('NFKD')
+    .replace(/[^\x00-\x7F]/g, '')
+    .replace(/[^a-zA-Z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 128) || 'tool';
+}
+
 function assert(condition, label) {
   if (condition) {
     console.log(`  PASS: ${label}`);
@@ -163,11 +173,11 @@ async function run() {
   assert(initialTools.length === 33, `Initial tool count = ${initialTools.length} (expected 33)`);
 
   const toolNames1 = initialTools.map(t => t.name);
-  assert(toolNames1.includes('tool.catalog'), 'tool.catalog is exposed');
-  assert(toolNames1.includes('tool.groups'), 'tool.groups is exposed');
-  assert(!toolNames1.includes('create_animation'), 'create_animation is hidden');
-  assert(!toolNames1.includes('create_audio_bus'), 'create_audio_bus is hidden');
-  assert(!toolNames1.includes('dap_set_breakpoint'), 'dap_set_breakpoint is hidden');
+  assert(toolNames1.includes(sanitizeToolName('tool.catalog')), 'sanitized tool.catalog is exposed');
+  assert(toolNames1.includes(sanitizeToolName('tool.groups')), 'sanitized tool.groups is exposed');
+  assert(!toolNames1.includes(sanitizeToolName('create_animation')), 'create_animation is hidden');
+  assert(!toolNames1.includes(sanitizeToolName('create_audio_bus')), 'create_audio_bus is hidden');
+  assert(!toolNames1.includes(sanitizeToolName('dap_set_breakpoint')), 'dap_set_breakpoint is hidden');
 
   // ── Phase 3: tool_catalog auto-activation ─────────────────
   console.log('\n[Phase 3] tool_catalog auto-activation');
@@ -188,11 +198,11 @@ async function run() {
   const { response: listRes2 } = await sendAndReceiveById(proc,
     makeRequest('tools/list', {}, 4), 4);
   const toolNames2 = listRes2.result.tools.map(t => t.name);
-  assert(toolNames2.includes('create_animation'), 'create_animation now exposed after activation');
-  assert(toolNames2.includes('add_animation_track'), 'add_animation_track now exposed');
-  assert(toolNames2.includes('create_animation_tree'), 'create_animation_tree now exposed');
-  assert(toolNames2.includes('add_animation_state'), 'add_animation_state now exposed');
-  assert(toolNames2.includes('connect_animation_states'), 'connect_animation_states now exposed');
+  assert(toolNames2.includes(sanitizeToolName('create_animation')), 'create_animation now exposed after activation');
+  assert(toolNames2.includes(sanitizeToolName('add_animation_track')), 'add_animation_track now exposed');
+  assert(toolNames2.includes(sanitizeToolName('create_animation_tree')), 'create_animation_tree now exposed');
+  assert(toolNames2.includes(sanitizeToolName('add_animation_state')), 'add_animation_state now exposed');
+  assert(toolNames2.includes(sanitizeToolName('connect_animation_states')), 'connect_animation_states now exposed');
   assert(toolNames2.length === 33 + 5, `Tool count after animation activation = ${toolNames2.length} (expected 38)`);
 
   // ── Phase 4: Multi-group activation (catalog + manual) ────
@@ -225,9 +235,9 @@ async function run() {
   const { response: listRes3 } = await sendAndReceiveById(proc,
     makeRequest('tools/list', {}, 7), 7);
   const toolNames3 = listRes3.result.tools.map(t => t.name);
-  assert(toolNames3.includes('create_audio_bus'), 'create_audio_bus exposed (audio group)');
-  assert(toolNames3.includes('dap_set_breakpoint'), 'dap_set_breakpoint exposed (dap group)');
-  assert(toolNames3.includes('dap_get_stack_trace'), 'dap_get_stack_trace exposed (dap group)');
+  assert(toolNames3.includes(sanitizeToolName('create_audio_bus')), 'create_audio_bus exposed (audio group)');
+  assert(toolNames3.includes(sanitizeToolName('dap_set_breakpoint')), 'dap_set_breakpoint exposed (dap group)');
+  assert(toolNames3.includes(sanitizeToolName('dap_get_stack_trace')), 'dap_get_stack_trace exposed (dap group)');
   assert(toolNames3.length === 33 + 5 + 4 + 6, `Tool count with 3 groups = ${toolNames3.length} (expected 48)`);
 
   // ── Phase 5: manage_tool_groups status & list ──────────────
@@ -277,9 +287,9 @@ async function run() {
   const { response: listRes4 } = await sendAndReceiveById(proc,
     makeRequest('tools/list', {}, 11), 11);
   const toolNames4 = listRes4.result.tools.map(t => t.name);
-  assert(!toolNames4.includes('create_audio_bus'), 'create_audio_bus hidden after deactivation');
-  assert(toolNames4.includes('create_animation'), 'create_animation still exposed');
-  assert(toolNames4.includes('dap_set_breakpoint'), 'dap_set_breakpoint still exposed');
+  assert(!toolNames4.includes(sanitizeToolName('create_audio_bus')), 'create_audio_bus hidden after deactivation');
+  assert(toolNames4.includes(sanitizeToolName('create_animation')), 'create_animation still exposed');
+  assert(toolNames4.includes(sanitizeToolName('dap_set_breakpoint')), 'dap_set_breakpoint still exposed');
   assert(toolNames4.length === 33 + 5 + 6, `Tool count after audio deactivation = ${toolNames4.length} (expected 44)`);
 
   // ── Phase 7: Reset ──────────────────────────────────────────
