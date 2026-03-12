@@ -19,6 +19,7 @@ const BRIDGE_HOST = process.env.GOPEAK_BRIDGE_HOST || process.env.GODOT_BRIDGE_H
 const GODOT_PATH = process.env.GODOT_PATH || '/home/doyun/Apps/godot-4.6-rc2/Godot_v4.6-rc2_linux.x86_64';
 const TEST_PROJECT = process.env.GOPEAK_TEST_PROJECT || '/home/doyun/gopeak-smoke-test';
 const RUNTIME_PORT = 7777;
+const OPENAI_COMPATIBLE_TOOL_NAME_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
 
 let passed = 0;
 let failed = 0;
@@ -57,6 +58,20 @@ function parseTextContent(response) {
   } catch {
     return null;
   }
+}
+
+function sanitizeToolName(name) {
+  return name
+    .normalize('NFKD')
+    .replace(/[^\x00-\x7F]/g, '')
+    .replace(/[^a-zA-Z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 128) || 'tool';
+}
+
+function expandToolCandidates(...names) {
+  return [...new Set(names.filter(Boolean).flatMap((name) => [name, sanitizeToolName(name)]))];
 }
 
 function chooseTool(toolNames, preferred) {
@@ -215,7 +230,7 @@ async function main() {
   console.log('\n📚 Testing tool catalog before tools/list...');
   let catalogToolName = 'tool.catalog';
   let catalogPayload = null;
-  for (const candidate of ['tool.catalog', 'tool_catalog']) {
+  for (const candidate of expandToolCandidates('tool.catalog', 'tool_catalog')) {
     stdout = '';
     server.stdin.write(rpcMsg('tools/call', { name: candidate, arguments: { limit: 20 } }));
     await delay(1000);
@@ -242,8 +257,8 @@ async function main() {
     const knownToolResponses = parseResponses(stdout);
     const knownToolPayload = parseTextContent(knownToolResponses.find(response => response.result?.content));
     const catalogIncludesKnownTool = Array.isArray(knownToolPayload?.tools) && knownToolPayload.tools.some((entry) => {
-      return ['create_scene', 'scene.create'].includes(entry?.tool)
-        || ['create_scene', 'scene.create'].includes(entry?.compactAlias);
+      return expandToolCandidates('create_scene', 'scene.create').includes(entry?.tool)
+        || expandToolCandidates('create_scene', 'scene.create').includes(entry?.compactAlias);
     });
     if (catalogIncludesKnownTool) {
       ok(`${catalogToolName} query includes known tool entry`);
@@ -288,21 +303,29 @@ async function main() {
   try {
     const tools = await listAllTools();
     const toolNames = new Set(tools.map(tool => tool.name));
-    const isCompactProfile = Array.from(toolNames).some(name => name.includes('.'));
+    const invalidToolNames = tools
+      .map((tool) => tool?.name)
+      .filter((name) => typeof name !== 'string' || !OPENAI_COMPATIBLE_TOOL_NAME_PATTERN.test(name));
+    const isCompactProfile = (process.env.GOPEAK_TOOL_PROFILE || 'compact') === 'compact';
     const hasTool = (...names) => names.filter(Boolean).some(name => toolNames.has(name));
 
     ok(`tools/list returned ${tools.length} tools across all pages`);
+    if (invalidToolNames.length === 0) {
+      ok('tools/list names are OpenAI-compatible');
+    } else {
+      fail('tools/list name validation', invalidToolNames.join(', '));
+    }
 
-    if (hasTool('get_editor_status', 'editor.status')) {
+    if (hasTool(...expandToolCandidates('get_editor_status', 'editor.status'))) {
       ok('get_editor_status/editor.status tool registered');
     } else {
       fail('get_editor_status/editor.status', 'Not found in tool list');
     }
-    statusToolName = chooseTool(toolNames, ['editor.status', 'get_editor_status']);
-    runtimeStatusToolName = chooseTool(toolNames, ['runtime.status', 'get_runtime_status']);
-    sceneCreateToolName = chooseTool(toolNames, ['scene.create', 'create_scene']);
-    captureScreenshotToolName = chooseTool(toolNames, ['capture_screenshot']);
-    captureViewportToolName = chooseTool(toolNames, ['capture_viewport']);
+    statusToolName = chooseTool(toolNames, expandToolCandidates('editor.status', 'get_editor_status'));
+    runtimeStatusToolName = chooseTool(toolNames, expandToolCandidates('runtime.status', 'get_runtime_status'));
+    sceneCreateToolName = chooseTool(toolNames, expandToolCandidates('scene.create', 'create_scene'));
+    captureScreenshotToolName = chooseTool(toolNames, expandToolCandidates('capture_screenshot'));
+    captureViewportToolName = chooseTool(toolNames, expandToolCandidates('capture_viewport'));
 
     const migratedTools = [
       { legacy: 'create_scene', compact: 'scene.create' },
@@ -313,7 +336,7 @@ async function main() {
     ];
 
     for (const { legacy, compact } of migratedTools) {
-      if (hasTool(legacy, compact)) {
+      if (hasTool(...expandToolCandidates(legacy, compact))) {
         ok(`Tool '${compact || legacy}' registered`);
       } else if (isCompactProfile && !compact) {
         ok(`Tool '${legacy}' omitted by compact profile (expected)`);
@@ -690,11 +713,10 @@ async function main() {
     }
 
     // Regression: issue #7 (missing args must fail fast and must not emit tool_invoke)
-    const missingArgsToolName = chooseTool(new Set([sceneCreateToolName, 'scene.create', 'create_scene']), [
-      sceneCreateToolName,
-      'scene.create',
-      'create_scene',
-    ]);
+    const missingArgsToolName = chooseTool(
+      new Set(expandToolCandidates(sceneCreateToolName, 'scene.create', 'create_scene')),
+      expandToolCandidates(sceneCreateToolName, 'scene.create', 'create_scene'),
+    );
     const unexpectedInvokes = [];
     const missingArgsCapture = (data) => {
       try {

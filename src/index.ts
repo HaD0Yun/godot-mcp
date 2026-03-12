@@ -909,8 +909,48 @@ class GodotServer {
     return handleDAPTool(this.dapClient, toolName, args);
   }
 
+  private sanitizeExportedToolName(toolName: string): string {
+    const sanitized = toolName
+      .normalize('NFKD')
+      .replace(/[^\x00-\x7F]/g, '')
+      .replace(/[^a-zA-Z0-9-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 128);
+
+    return sanitized.length > 0 ? sanitized : 'tool';
+  }
+
+  private buildToolNameResolutionMap(allTools: MCPToolDefinition[]): Map<string, string> {
+    const resolutionMap = new Map<string, string>();
+
+    const register = (candidateName: string, resolvedName: string) => {
+      const existing = resolutionMap.get(candidateName);
+      if (existing && existing !== resolvedName) {
+        throw new Error(`Sanitized tool name collision: "${candidateName}" maps to both "${existing}" and "${resolvedName}"`);
+      }
+      resolutionMap.set(candidateName, resolvedName);
+    };
+
+    for (const tool of allTools) {
+      register(tool.name, tool.name);
+      register(this.sanitizeExportedToolName(tool.name), tool.name);
+    }
+
+    for (const [compactName, legacyName] of Object.entries(this.compactAliasToLegacy)) {
+      register(compactName, legacyName);
+      register(this.sanitizeExportedToolName(compactName), legacyName);
+    }
+
+    return resolutionMap;
+  }
+
   private resolveToolAlias(requestedToolName: string): string {
-    return this.compactAliasToLegacy[requestedToolName] || requestedToolName;
+    const allTools = this.getAllToolDefinitions();
+    const resolutionMap = this.buildToolNameResolutionMap(allTools);
+    return resolutionMap.get(requestedToolName)
+      || resolutionMap.get(this.sanitizeExportedToolName(requestedToolName))
+      || requestedToolName;
   }
 
   private buildCompactTools(allTools: MCPToolDefinition[]): MCPToolDefinition[] {
@@ -930,6 +970,31 @@ class GodotServer {
     }
 
     return compactTools;
+  }
+
+  private sanitizeToolsForList(tools: MCPToolDefinition[]): MCPToolDefinition[] {
+    const seenNames = new Map<string, string>();
+
+    return tools.map((tool) => {
+      const sanitizedName = this.sanitizeExportedToolName(tool.name);
+      const existing = seenNames.get(sanitizedName);
+      if (existing && existing !== tool.name) {
+        throw new Error(`Sanitized tool name collision in tools/list: "${sanitizedName}" from "${existing}" and "${tool.name}"`);
+      }
+
+      seenNames.set(sanitizedName, tool.name);
+
+      if (sanitizedName !== tool.name) {
+        this.logDebug(`Exporting tool "${tool.name}" as "${sanitizedName}" for OpenAI-compatible clients`);
+      }
+
+      return sanitizedName === tool.name
+        ? tool
+        : {
+            ...tool,
+            name: sanitizedName,
+          };
+    });
   }
 
   private getExposedTools(allTools: MCPToolDefinition[]): MCPToolDefinition[] {
@@ -3809,7 +3874,7 @@ class GodotServer {
       const allTools = buildToolDefinitions();
       this.cachedToolDefinitions = allTools;
 
-      const exposedTools = this.getExposedTools(allTools);
+      const exposedTools = this.sanitizeToolsForList(this.getExposedTools(allTools));
       return this.paginateToolsForList(exposedTools, request.params?.cursor);
     });
 
