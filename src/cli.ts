@@ -14,11 +14,12 @@
  */
 
 import { getLocalVersion } from './cli/utils.js';
+import { runPrototypeCommand } from './cli/prototype.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
 
-const CLI_COMMANDS = ['setup', 'check', 'star', 'notify', 'uninstall', 'version', 'help', '--version', '-v', '--help', '-h'];
+const CLI_COMMANDS = ['setup', 'check', 'star', 'notify', 'uninstall', 'version', 'help', 'script', 'editor', 'debug', 'project', '--version', '-v', '--help', '-h'];
 
 async function main(): Promise<void> {
   // If no args or not a CLI command → start MCP server (original behavior)
@@ -54,6 +55,14 @@ async function main(): Promise<void> {
       await uninstallHooks();
       break;
     }
+    case 'script':
+    case 'editor':
+    case 'debug':
+    case 'project': {
+      const ok = await runPrototypeCommand(args);
+      process.exitCode = ok ? 0 : 1;
+      break;
+    }
     case 'version':
     case '--version':
     case '-v': {
@@ -82,6 +91,11 @@ Usage:
   gopeak check --quiet  Print only if update available
   gopeak star           Star GoPeak on GitHub
   gopeak uninstall      Remove shell hooks
+  gopeak script ...     Prototype script-mutation commands (compact MCP-backed)
+  gopeak editor ...     Prototype run/stop commands (compact MCP-backed)
+  gopeak debug output   Prototype debug-log retrieval (compact MCP-backed)
+  gopeak project export Prototype export/build command (compact MCP-backed)
+  gopeak project validate Prototype validation command (compact MCP-backed)
   gopeak version        Show current version
   gopeak help           Show this help
 
